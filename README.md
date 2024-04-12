@@ -74,7 +74,7 @@ def callback(message):
     pass
 
 # Start listening for updates in an async.io Task
-altitude.start_listening(callback: callback)
+asyncio.create_task(altitude.start_listening(callback: callback))
 ```
 
 ## State
@@ -87,12 +87,14 @@ your object with the processor's state.
 ```python
 altitude.audiosync: bool | None # Current state of audiosync
 altitude.bypass: bool | None = None # Current state of bypass
+altitude.decoder: bool | None = None # Current decoder being used
 altitude.dim: bool | None = None # Current state of dim
 altitude.id: str | None = None # Unique ID of the processor
 altitude.mute: bool | None = None # Current state of mute
 altitude.presets: dict = {} # Dictionary of all presets and their names
 altitude.source: str | None = None # Current source
 altitude.sources: dict = {} # Dictionary of all sources and their names
+altitude.upmixer: str | None = None # Current upmixer being used
 altitude.version: str | None = None # Software version of the processor
 altitude.volume: float | None = None # Current volume level in dB
 ```
@@ -175,7 +177,8 @@ await altitude.power_off()
 ### Presets
 
 ```python
-await altitude.preset_load(id: int)
+await altitude.preset_get()
+await altitude.preset_set(id: int)
 ```
 
 ### Quick optimized
