@@ -73,7 +73,7 @@ class Message:
 
 
 class AudiosyncMessage(Message):
-    def __init__(self, mode: bool) -> None:
+    def __init__(self, mode: str) -> None:
         self.mode = mode
 
 

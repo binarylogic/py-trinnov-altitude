@@ -3,10 +3,10 @@ Implements the Trinnov Altitude processor automation protocol over TCP/IP
 """
 
 import asyncio
-from collections.abc import Callable, Set
+from collections.abc import Callable
 import logging
 import re
-from typing import Dict, TypeAlias
+from typing import TypeAlias
 from wakeonlan import send_magic_packet
 
 from trinnov_altitude import const, exceptions, messages
@@ -78,22 +78,22 @@ class TrinnovAltitude:
         self.logger = logger
 
         # State
-        self.audiosync: bool | None = None
+        self.audiosync: str | None = None
         self.bypass: bool | None = None
         self.decoder: str | None = None
         self.dim: bool | None = None
         self.id: str | None = None
         self.mute: bool | None = None
         self.preset: str | None = None
-        self.presets: Dict[int, str] = {}
+        self.presets: dict[int, str] = {}
         self.source: str | None = None
-        self.sources: Dict[int, str] = {}
+        self.sources: dict[int, str] = {}
         self.upmixer: str | None = None
         self.version: str | None = None
         self.volume: float | None = None
 
         # Utility
-        self._callbacks: Set[Callback] = set()
+        self._callbacks: set[Callback] = set()
         self._initial_sync = asyncio.Event()
         self._reader: asyncio.StreamReader | None = None
         self._response_handler_task: asyncio.Task | None = None
@@ -534,7 +534,7 @@ class TrinnovAltitude:
         """
         Set the source identified by `name` from `sources`.
         """
-        for source_id, source_name in self.sources:
+        for source_id, source_name in self.sources.items():
             if source_name == name:
                 await self.source_set(source_id)
                 return
