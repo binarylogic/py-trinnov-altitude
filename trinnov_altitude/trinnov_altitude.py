@@ -171,6 +171,7 @@ class TrinnovAltitude:
         self.mute = None
         self.preset = None
         self.source = None
+        self.source_format = None
         self.upmixer = None
         self.volume = None
 
@@ -676,6 +677,8 @@ class TrinnovAltitude:
             self.bypass = message.state
         elif isinstance(message, messages.CurrentPresetMessage):
             self.preset = self.presets.get(message.index)
+        elif isinstance(message, messages.CurrentSourceFormat):
+            self.source_format = message.format
         elif isinstance(message, messages.CurrentSourceMessage):
             self.source = self.sources.get(message.index)
         elif isinstance(message, messages.DecoderMessage):

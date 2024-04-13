@@ -94,6 +94,7 @@ async def test_start_listening_syncs(mock_server, connected_client):
     assert connected_client.mute is False
     assert connected_client.preset == "Builtin"
     assert connected_client.source == "Apple TV"
+    assert connected_client.source_format == "Atmos narrow"
     assert connected_client.upmixer == "none"
     assert connected_client.version == "4.3.2rc1"
     assert connected_client.volume == -40

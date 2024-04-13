@@ -17,8 +17,11 @@ def message_factory(message) -> Message:  # noqa: C901
     elif match := re.match(r"^CURRENT_PROFILE\s(-?\d+)", message):
         state = int(match.group(1))
         return CurrentSourceMessage(state)
+    elif match := re.match(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)", message):
+        format = match.group(1)
+        return CurrentSourceFormat(format)
     elif match := re.match(
-        r"DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (\w+) UPMIXER (\w+)", message
+        r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (\w+) UPMIXER (\w+)", message
     ):
         nonaudio = bool(int(match.group(1)))
         playable = bool(int(match.group(2)))
@@ -82,6 +85,11 @@ class BypassMessage(Message):
 class CurrentPresetMessage(Message):
     def __init__(self, index: int) -> None:
         self.index = index
+
+
+class CurrentSourceFormat(Message):
+    def __init__(self, format: str) -> None:
+        self.format = format
 
 
 class CurrentSourceMessage(Message):
