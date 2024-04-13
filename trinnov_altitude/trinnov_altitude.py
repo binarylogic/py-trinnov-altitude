@@ -29,6 +29,8 @@ class TrinnovAltitude:
         "c8:7f:54",  # ASUSTek OUI (components inside Altitudes)
         "64:98:9e",  # Trinnov's OUI
     ]
+    VOLUME_MIN = -120.0
+    VOLUME_MAX = 20.0
 
     # Use a sentinel value to signal that the DEFAULT_TIMEOUT should be used.
     # This allows users to pass None and disable the timeout to wait indefinitely.
@@ -231,6 +233,17 @@ class TrinnovAltitude:
         """
 
         await asyncio.wait_for(self._initial_sync.wait(), timeout)
+
+    # --------------------------
+    # Properties
+    # --------------------------
+    def volume_percentage(self) -> float | None:
+        if self.volume is None:
+            return None
+
+        return (
+            (self.volume - self.VOLUME_MIN) / (self.VOLUME_MAX - self.VOLUME_MIN)
+        ) * 100
 
     # --------------------------
     # Commands
