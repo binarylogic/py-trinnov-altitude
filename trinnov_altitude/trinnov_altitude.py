@@ -87,6 +87,7 @@ class TrinnovAltitude:
         self.preset: str | None = None
         self.presets: dict[int, str] = {}
         self.source: str | None = None
+        self.source_format: str | None = None
         self.sources: dict[int, str] = {}
         self.upmixer: str | None = None
         self.version: str | None = None
