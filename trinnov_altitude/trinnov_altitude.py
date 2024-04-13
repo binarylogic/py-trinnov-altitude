@@ -528,6 +528,17 @@ class TrinnovAltitude:
         """
         await self._write(f"profile {id}", timeout)
 
+    async def source_set_by_name(
+        self, name: str, timeout: int | float | None = USE_DEFAULT_TIMEOUT
+    ):
+        """
+        Set the source identified by `name` from `sources`.
+        """
+        for source_id, source_name in self.sources:
+            if source_name == name:
+                await self.source_set(source_id)
+                return
+
     async def time_alignment_off(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):
