@@ -582,6 +582,21 @@ class TrinnovAltitude:
         """
         await self.volume_adjust(-0.5, timeout)
 
+    async def volume_percentage_set(self, percentage: float):
+        """
+        Set the volume based on a percentage.
+        """
+        if not (0 <= percentage <= 100):
+            raise ValueError("Percentage must be between 0 and 100")
+
+        # Calculate the corresponding volume level from the percentage
+        volume = (
+            (percentage / 100) * (self.VOLUME_MAX - self.VOLUME_MIN)
+        ) + self.VOLUME_MIN
+        volume = round(volume, 1)
+
+        await self.volume_set(volume)
+
     async def volume_set(
         self, db: int | float, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):

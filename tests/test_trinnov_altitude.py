@@ -127,6 +127,13 @@ async def test_volume_adjust(mock_server, connected_client):
 
 
 @pytest.mark.asyncio
+async def test_volume_percentage_set(mock_server, connected_client):
+    await connected_client.volume_percentage_set(52.86)
+    await asyncio.sleep(0.5)
+    assert connected_client.volume == -46.0
+
+
+@pytest.mark.asyncio
 async def test_volume_set(mock_server, connected_client):
     await connected_client.volume_set(-46)
     await asyncio.sleep(0.5)
