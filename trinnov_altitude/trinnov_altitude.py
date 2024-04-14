@@ -638,7 +638,14 @@ class TrinnovAltitude:
     # --------------------------
     # Utility
     # --------------------------
-    async def _listen(self, reconnect: bool, backoff: float):
+    async def _listen(
+        self,
+        read_timeout: float = 30.0,
+        read_backoff: float = 1.0,
+        reconnect: bool = True,
+        reconnect_timeout: float = 2.0,
+        reconnect_backoff: float = 2.0,
+    ):
         """
         Listen for messages and sync internal state
 
@@ -648,12 +655,12 @@ class TrinnovAltitude:
         try:
             while True:
                 try:
-                    await self._read(backoff)
+                    await self._read(read_timeout)
                 except asyncio.TimeoutError:
                     self.logger.debug(
-                        f"Read operation timed out, trying again in {backoff} seconds"
+                        f"Read operation timed out, trying again in {read_backoff} seconds"
                     )
-                    await asyncio.sleep(backoff)
+                    await asyncio.sleep(read_backoff)
                 except (exceptions.NotConnectedError, EOFError, OSError) as e:
                     if reconnect:
                         self.logger.debug(
@@ -661,16 +668,16 @@ class TrinnovAltitude:
                         )
 
                         try:
-                            await self.reconnect(timeout=backoff)
+                            await self.reconnect(timeout=reconnect_timeout)
                         except (
                             asyncio.TimeoutError,
                             exceptions.ConnectionTimeoutError,
                             exceptions.ConnectionFailedError,
                         ) as e:
                             self.logger.debug(
-                                f"Trinnov Altitude reconnect failed, trying again in {backoff} seconds...: {e}"
+                                f"Trinnov Altitude reconnect failed, trying again in {reconnect_backoff} seconds...: {e}"
                             )
-                            await asyncio.sleep(backoff)
+                            await asyncio.sleep(reconnect_backoff)
                     else:
                         raise e
         except asyncio.CancelledError:

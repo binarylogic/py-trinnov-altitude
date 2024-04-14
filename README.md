@@ -1,7 +1,6 @@
 # Trinnov Altitude Python Library
 
-A Python library for interacting with the [Trinnov Altitude processor](https://www.trinnov.com/en/products/altitude32/) via the
-[TCP/IP automation protocol](docs/Alititude%20Protocol.pdf) provided by the Trinnov Altitude.
+A Python library for interacting with the [Trinnov Altitude processor](https://www.trinnov.com/en/products/altitude32/) via the [TCP/IP automation protocol](docs/Alititude%20Protocol.pdf) provided by the Trinnov Altitude. Initially built for the [Trinnov Altitude Home Assistant integration] (https://github.com/binarylogic/trinnov-altitude-homeassistant)
 
 ## Overview
 
