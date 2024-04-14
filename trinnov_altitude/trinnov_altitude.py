@@ -457,6 +457,14 @@ class TrinnovAltitude:
 
         send_magic_packet(self.mac)
 
+    def power_on_available() -> bool:
+        """
+        Can the device be powered on.
+
+        A mac address is required to do so.
+        """
+        return self.mac is not None
+
     async def preset_get(self, timeout: int | float | None = USE_DEFAULT_TIMEOUT):
         """
         Requests the current present.
