@@ -457,7 +457,7 @@ class TrinnovAltitude:
 
         send_magic_packet(self.mac)
 
-    def power_on_available() -> bool:
+    def power_on_available(self) -> bool:
         """
         Can the device be powered on.
 
