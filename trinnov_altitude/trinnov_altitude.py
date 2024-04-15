@@ -25,10 +25,6 @@ class TrinnovAltitude:
     DEFAULT_PORT = 44100
     DEFAULT_TIMEOUT = 2.0
     ENCODING = "ascii"
-    VALID_OUIS = [
-        "c8:7f:54",  # ASUSTek OUI (components inside Altitudes)
-        "64:98:9e",  # Trinnov's OUI
-    ]
     VOLUME_MIN = -120.0
     VOLUME_MAX = 20.0
 
@@ -49,11 +45,6 @@ class TrinnovAltitude:
         pattern = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
         if pattern.match(normalized_mac_address) is None:
             raise exceptions.MalformedMacAddressError(mac_address)
-
-        # Verify it starts with Trinnov associates OUIs
-        mac_oui = normalized_mac_address[:8]
-        if not any(mac_oui == oui for oui in cls.VALID_OUIS):
-            raise exceptions.InvalidMacAddressOUIError(mac_oui, cls.VALID_OUIS)
 
         return True
 

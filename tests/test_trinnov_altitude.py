@@ -36,9 +36,6 @@ async def test_validate_mac():
     with pytest.raises(MalformedMacAddressError):
         TrinnovAltitude.validate_mac("malformed")
 
-    with pytest.raises(InvalidMacAddressOUIError):
-        TrinnovAltitude.validate_mac("c9:7f:32:2b:ea:f4")
-
     assert TrinnovAltitude.validate_mac("c8:7f:54:7a:eb:c2")
 
 
