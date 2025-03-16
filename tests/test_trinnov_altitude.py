@@ -5,7 +5,6 @@ import pytest_asyncio
 from trinnov_altitude.exceptions import (
     ConnectionFailedError,
     ConnectionTimeoutError,
-    InvalidMacAddressOUIError,
     MalformedMacAddressError,
 )
 from trinnov_altitude.messages import Message
