@@ -85,14 +85,14 @@ async def test_start_listening_syncs(mock_server, connected_client):
     await asyncio.sleep(0.5)
     assert connected_client.audiosync == "Slave"
     assert connected_client.bypass is False
-    assert connected_client.decoder == "none"
+    assert connected_client.decoder == "dolby atmos"
     assert connected_client.dim is False
     assert connected_client.id == "10485761"
     assert connected_client.mute is False
     assert connected_client.preset == "Builtin"
     assert connected_client.source == "Apple TV"
     assert connected_client.source_format == "Atmos narrow"
-    assert connected_client.upmixer == "none"
+    assert connected_client.upmixer == "dolby atmos"
     assert connected_client.version == "4.3.2rc1"
     assert connected_client.volume == -40
 
