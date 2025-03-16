@@ -21,7 +21,7 @@ def message_factory(message) -> Message:  # noqa: C901
         format = match.group(1)
         return CurrentSourceFormat(format)
     elif match := re.match(
-        r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (\w+) UPMIXER (\w+)", message
+        r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER ([\w\s]+) UPMIXER ([\w\s]+)", message
     ):
         nonaudio = bool(int(match.group(1)))
         playable = bool(int(match.group(2)))

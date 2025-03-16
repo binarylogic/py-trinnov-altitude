@@ -104,7 +104,7 @@ class MockTrinnovAltitudeServer:
         "OK",
         "SRATE 48000",
         "AUDIOSYNC_STATUS 0",
-        "DECODER NONAUDIO 1 PLAYABLE 0 DECODER none UPMIXER none",
+        "DECODER NONAUDIO 1 PLAYABLE 0 DECODER dolby atmos UPMIXER dolby atmos",
         "AUDIOSYNC Slave",
         "CURRENT_PROFILE 1",
         "CURRENT_PRESET -1",
