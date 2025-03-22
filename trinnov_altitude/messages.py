@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import re
 
+# A-Z, 0-9, " " : -
+
+AUDIO_FORMAT_MAPPING = {
+  "ATMOS TrueHD": "Dolby Atmos/Dolby TrueHD",
+  "TRUEHD": "Dolby TrueHD"
+}
+
 
 def message_factory(message) -> Message:  # noqa: C901
     if match := re.match(r"^AUDIOSYNC\s(.*)", message):
@@ -30,6 +37,8 @@ def message_factory(message) -> Message:  # noqa: C901
         playable = bool(int(match.group(2)))
         decoder = match.group(3)
         upmixer = match.group(4)
+
+        decoder = AUDIO_FORMAT_MAPPING.get(decoder, decoder)
         return DecoderMessage(nonaudio, playable, decoder, upmixer)
     elif match := re.match(r"^DIM\s(-?\d+)", message):
         state = bool(int(match.group(1)))
