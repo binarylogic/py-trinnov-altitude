@@ -17,11 +17,14 @@ def message_factory(message) -> Message:  # noqa: C901
     elif match := re.match(r"^CURRENT_PROFILE\s(-?\d+)", message):
         state = int(match.group(1))
         return CurrentSourceMessage(state)
+    elif match := re.match(r"^META_PRESET_LOADED\s(-?\d+)", message):
+        state = int(match.group(1))
+        return CurrentSourceMessage(state)
     elif match := re.match(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)", message):
         format = match.group(1)
         return CurrentSourceFormat(format)
     elif match := re.match(
-        r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER ([\w\s]+) UPMIXER ([\w\s]+)", message
+        r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)", message
     ):
         nonaudio = bool(int(match.group(1)))
         playable = bool(int(match.group(2)))
