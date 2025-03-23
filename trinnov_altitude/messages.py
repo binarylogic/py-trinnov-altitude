@@ -11,6 +11,7 @@ AUDIO_FORMAT_MAPPING = {
   "TrueHD": "Dolby TrueHD"
 }
 
+
 def message_factory(message) -> Message:  # noqa: C901
     if match := re.match(r"^AUDIOSYNC\s(.*)", message):
         mode = match.group(1)
