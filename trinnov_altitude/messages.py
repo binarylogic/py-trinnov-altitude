@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import re
 
-# A-Z, 0-9, " " : -
-
 AUDIO_FORMAT_MAPPING = {
   "ATMOS TrueHD": "Dolby Atmos/Dolby TrueHD",
-  "TRUEHD": "Dolby TrueHD"
+  "DTS:X MA": "DTS:X Master Audio",
+  "DTS-HD MA": "DTS-HD Master Audio",
+  "ATMOS DD+": "Dolby Atmos/Dolby Digital Plus",
+  "DD": "Dolby Digital",
+  "TrueHD": "Dolby TrueHD"
 }
-
 
 def message_factory(message) -> Message:  # noqa: C901
     if match := re.match(r"^AUDIOSYNC\s(.*)", message):
