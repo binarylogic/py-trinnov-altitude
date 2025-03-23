@@ -469,7 +469,7 @@ class TrinnovAltitude:
         Set the preset identified by `id`. Preset `0` is the built-in preset and
         presets >= `1` are user defined presets.
         """
-        await self._write(f"loadp Config_{id}.xml", timeout)
+        await self._write(f"loadp {id}", timeout)
 
     async def quick_optimized_off(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -526,7 +526,7 @@ class TrinnovAltitude:
         """
         Set the source identified by `id`, where `0` is the first source.
         """
-        await self._write(f"profile {id}", timeout)
+        await self._write(f"profile 2", timeout)
 
     async def source_set_by_name(
         self, name: str, timeout: int | float | None = USE_DEFAULT_TIMEOUT
