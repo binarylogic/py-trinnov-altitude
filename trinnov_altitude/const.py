@@ -23,7 +23,7 @@ class UpmixerMode(Enum):
     MODE_NATIVE = ("native", "The Native upmixer mode.")
     MODE_LEGACY = ("legacy", "The Legacy upmixer mode.")
     MODE_UPMIX_ON_NATIVE = ("upmix_on_native", "The Upmix on Native upmixer mode.")
-    
+
     def __new__(cls, value, doc):
         obj = object.__new__(cls)
         obj._value_ = value
