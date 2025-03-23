@@ -414,8 +414,7 @@ class TrinnovAltitude:
         """
         Toggle the mute state.
         """
-        await self._write("mute 2"
-                          , timeout)
+        await self._write("mute 2", timeout)
 
     async def page_adjust(
         self, delta: int, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -527,7 +526,7 @@ class TrinnovAltitude:
         """
         Set the source identified by `id`, where `0` is the first source.
         """
-        await self._write(f"profile {id}", timeout)
+        await self._write("profile {id}", timeout)
 
     async def source_set_by_name(
         self, name: str, timeout: int | float | None = USE_DEFAULT_TIMEOUT
