@@ -469,7 +469,7 @@ class TrinnovAltitude:
         Set the preset identified by `id`. Preset `0` is the built-in preset and
         presets >= `1` are user defined presets.
         """
-        await self._write(f"loadp Config_{id}", timeout)
+        await self._write(f"loadp Config_{id}.xml", timeout)
 
     async def quick_optimized_off(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
