@@ -578,7 +578,7 @@ class TrinnovAltitude:
         Set the upmixer mode. See `const.UpmixerMode` for available options
         and descriptions.
         """
-        await self._write(f"remapping_mode {mode.value}", timeout)
+        await self._write(f"upmixer {const.UpmixerMode[mode].value}", timeout)
 
     async def volume_adjust(
         self, delta: int | float, timeout: int | float | None = USE_DEFAULT_TIMEOUT

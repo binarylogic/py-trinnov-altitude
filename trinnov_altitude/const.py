@@ -16,13 +16,13 @@ class RemappingMode(Enum):
 
 
 class UpmixerMode(Enum):
-    MODE_AUTO = ("none", "Disable the remapping mode.")
-    MODE_AURO3D = ("none", "Disable the remapping mode.")
-    MODE_DTS = ("2D", "The 2D remapping mode.")
-    MODE_DOLBY = ("3D", "The 3D remapping mode.")
-    MODE_NATIVE = ("3D", "The 3D remapping mode.")
-    MODE_LEGACY = ("autorotate", "The autoratating remapping mode.")
-    MODE_UPMIX_ON_NATIVE = ("manual", "The manual remapping mode.")
+    MODE_AUTO = ("auto", "")
+    MODE_AURO3D = ("auro3d", "Auro 3D upmixer mode.")
+    MODE_DTS = ("dts", "DTS upmixer mode.")
+    MODE_DOLBY = ("dolby", "The Dolby upmixer mode.")
+    MODE_NATIVE = ("native", "The Native upmixer mode.")
+    MODE_LEGACY = ("legacy", "The Legacy upmixer mode.")
+    MODE_UPMIX_ON_NATIVE = ("upmix_on_native", "The Upmix on Native upmixer mode.")
 
     def __new__(cls, value, doc):
         obj = object.__new__(cls)

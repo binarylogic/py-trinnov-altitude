@@ -2,6 +2,15 @@ from __future__ import annotations
 
 import re
 
+AUDIO_FORMAT_MAPPING = {
+  "ATMOS TrueHD": "Dolby Atmos/Dolby TrueHD",
+  "DTS:X MA": "DTS:X Master Audio",
+  "DTS-HD MA": "DTS-HD Master Audio",
+  "ATMOS DD+": "Dolby Atmos/Dolby Digital Plus",
+  "DD": "Dolby Digital",
+  "TrueHD": "Dolby TrueHD"
+}
+
 
 def message_factory(message) -> Message:  # noqa: C901
     if match := re.match(r"^AUDIOSYNC\s(.*)", message):
@@ -17,16 +26,21 @@ def message_factory(message) -> Message:  # noqa: C901
     elif match := re.match(r"^CURRENT_PROFILE\s(-?\d+)", message):
         state = int(match.group(1))
         return CurrentSourceMessage(state)
+    elif match := re.match(r"^META_PRESET_LOADED\s(-?\d+)", message):
+        state = int(match.group(1))
+        return CurrentSourceMessage(state)
     elif match := re.match(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)", message):
         format = match.group(1)
         return CurrentSourceFormat(format)
     elif match := re.match(
-        r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER ([\w\s]+) UPMIXER ([\w\s]+)", message
+        r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)", message
     ):
         nonaudio = bool(int(match.group(1)))
         playable = bool(int(match.group(2)))
         decoder = match.group(3)
         upmixer = match.group(4)
+
+        decoder = AUDIO_FORMAT_MAPPING.get(decoder, decoder)
         return DecoderMessage(nonaudio, playable, decoder, upmixer)
     elif match := re.match(r"^DIM\s(-?\d+)", message):
         state = bool(int(match.group(1)))
