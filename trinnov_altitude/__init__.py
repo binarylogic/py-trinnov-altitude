@@ -6,4 +6,4 @@ level = logging.getLevelName(log_level.upper())
 log_format = "[L %(lineno)s - %(funcName)5s() ] %(message)s"
 logging.basicConfig(level=level, format=log_format)
 
-__version__ = "1.2.5"
+__version__ = "1.2.6"
