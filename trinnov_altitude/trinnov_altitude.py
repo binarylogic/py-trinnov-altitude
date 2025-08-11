@@ -578,7 +578,7 @@ class TrinnovAltitude:
         Set the upmixer mode. See `const.UpmixerMode` for available options
         and descriptions.
         """
-        await self._write(f"upmixer {const.UpmixerMode[mode].value}", timeout)
+        await self._write(f"upmixer {mode.value}", timeout)
 
     async def volume_adjust(
         self, delta: int | float, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -672,9 +672,9 @@ class TrinnovAltitude:
                             asyncio.TimeoutError,
                             exceptions.ConnectionTimeoutError,
                             exceptions.ConnectionFailedError,
-                        ) as e:
+                        ) as e2:
                             self.logger.debug(
-                                f"Trinnov Altitude reconnect failed, trying again in {reconnect_backoff} seconds...: {e}"
+                                f"Trinnov Altitude reconnect failed, trying again in {reconnect_backoff} seconds...: {e2}"
                             )
                             await asyncio.sleep(reconnect_backoff)
                     else:
@@ -760,9 +760,11 @@ class TrinnovAltitude:
             await self.disconnect()
             raise exceptions.NotConnectedError()
         else:
-            raw_message = raw_message.decode().rstrip()
-            self.logger.debug(f"Received message from Trinnov Altitude: {raw_message}")
-            return self._process_message(raw_message)
+            raw_message_str = raw_message.decode().rstrip()
+            self.logger.debug(
+                f"Received message from Trinnov Altitude: {raw_message_str}"
+            )
+            return self._process_message(raw_message_str)
 
     async def _write(self, message: str, timeout: float | None):
         """Write a single message to the socket"""
