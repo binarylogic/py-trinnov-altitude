@@ -248,7 +248,7 @@ class TrinnovAltitude:
         """
         Turn the acoustic correction off.
         """
-        await self.acoustic_correction_set(False)
+        await self.acoustic_correction_set(False, timeout)
 
     async def acoustic_correction_on(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -256,7 +256,7 @@ class TrinnovAltitude:
         """
         Turn the acoustic correction on.
         """
-        await self.acoustic_correction_set(True)
+        await self.acoustic_correction_set(True, timeout)
 
     async def acoustic_correction_set(
         self, state: bool, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -278,13 +278,13 @@ class TrinnovAltitude:
         """
         Turn the bypass off
         """
-        await self.bypass_set(False)
+        await self.bypass_set(False, timeout)
 
     async def bypass_on(self, timeout: int | float | None = USE_DEFAULT_TIMEOUT):
         """
         Turn the bypass on
         """
-        await self.bypass_set(True)
+        await self.bypass_set(True, timeout)
 
     async def bypass_set(
         self, state: bool, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -304,13 +304,13 @@ class TrinnovAltitude:
         """
         Turn the dim off.
         """
-        await self.dim_set(False)
+        await self.dim_set(False, timeout)
 
     async def dim_on(self, timeout: int | float | None = USE_DEFAULT_TIMEOUT):
         """
         Turn the dim on.
         """
-        await self.dim_set(True)
+        await self.dim_set(True, timeout)
 
     async def dim_set(
         self, state: bool, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -332,13 +332,13 @@ class TrinnovAltitude:
         """
         Turn the front display off.
         """
-        await self.front_display_set(False)
+        await self.front_display_set(False, timeout)
 
     async def front_display_on(self, timeout: int | float | None = USE_DEFAULT_TIMEOUT):
         """
         Turn the front display on.
         """
-        await self.front_display_set(True)
+        await self.front_display_set(True, timeout)
 
     async def front_display_set(
         self, state: bool, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -354,7 +354,7 @@ class TrinnovAltitude:
         """
         Toggle the front display of the processor.
         """
-        await self._write("dim 2", timeout)
+        await self._write("fav_light 2", timeout)
 
     async def level_alignment_off(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -362,7 +362,7 @@ class TrinnovAltitude:
         """
         Turn the level alignment off.
         """
-        await self.level_alignment_set(False)
+        await self.level_alignment_set(False, timeout)
 
     async def level_alignment_on(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -370,7 +370,7 @@ class TrinnovAltitude:
         """
         Turn the level alignment on.
         """
-        await self.level_alignment_set(True)
+        await self.level_alignment_set(True, timeout)
 
     async def level_alignment_set(
         self, state: bool, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -381,7 +381,7 @@ class TrinnovAltitude:
         await self._write(f"use_level_alignment {int(state)}", timeout)
 
     async def level_alignment_toggle(
-        self, state, timeout: int | float | None = USE_DEFAULT_TIMEOUT
+        self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):
         """
         Toggle the level alignment state.
@@ -392,13 +392,13 @@ class TrinnovAltitude:
         """
         Turn the mute off.
         """
-        await self.mute_set(False)
+        await self.mute_set(False, timeout)
 
     async def mute_on(self, timeout: int | float | None = USE_DEFAULT_TIMEOUT):
         """
         Turn the mute on.
         """
-        await self.mute_set(True)
+        await self.mute_set(True, timeout)
 
     async def mute_set(
         self, state: bool, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -408,9 +408,7 @@ class TrinnovAltitude:
         """
         await self._write(f"mute {int(state)}", timeout)
 
-    async def mute_toggle(
-        self, state, timeout: int | float | None = USE_DEFAULT_TIMEOUT
-    ):
+    async def mute_toggle(self, timeout: int | float | None = USE_DEFAULT_TIMEOUT):
         """
         Toggle the mute state.
         """
@@ -429,13 +427,13 @@ class TrinnovAltitude:
         """
         Changes the menu page currently on the GUI down by one page.
         """
-        await self.page_adjust(-1)
+        await self.page_adjust(-1, timeout)
 
     async def page_up(self, timeout: int | float | None = USE_DEFAULT_TIMEOUT):
         """
         Changes the menu page currently on the GUI up by one page.
         """
-        await self.page_adjust(1)
+        await self.page_adjust(1, timeout)
 
     async def power_off(self, timeout: int | float | None = USE_DEFAULT_TIMEOUT):
         """Power off."""
@@ -477,7 +475,7 @@ class TrinnovAltitude:
         """
         Turn quick optimized off.
         """
-        await self.quick_optimized_set(False)
+        await self.quick_optimized_set(False, timeout)
 
     async def quick_optimized_on(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -485,7 +483,7 @@ class TrinnovAltitude:
         """
         Turn quick optimized on.
         """
-        await self.quick_optimized_set(True)
+        await self.quick_optimized_set(True, timeout)
 
     async def quick_optimized_set(
         self, state: bool, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -496,7 +494,7 @@ class TrinnovAltitude:
         await self._write(f"quick_optimized {int(state)}", timeout)
 
     async def quick_optimized_toggle(
-        self, state, timeout: int | float | None = USE_DEFAULT_TIMEOUT
+        self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):
         """
         Toggle the quick optimized state.
@@ -536,7 +534,7 @@ class TrinnovAltitude:
         """
         for source_id, source_name in self.sources.items():
             if source_name == name:
-                await self.source_set(source_id)
+                await self.source_set(source_id, timeout)
                 return
 
     async def time_alignment_off(
@@ -545,7 +543,7 @@ class TrinnovAltitude:
         """
         Turn time alignment off.
         """
-        await self.time_alignment_set(False)
+        await self.time_alignment_set(False, timeout)
 
     async def time_alignment_on(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -553,7 +551,7 @@ class TrinnovAltitude:
         """
         Turn time alignment on.
         """
-        await self.time_alignment_set(True)
+        await self.time_alignment_set(True, timeout)
 
     async def time_alignment_set(
         self, state: bool, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -564,7 +562,7 @@ class TrinnovAltitude:
         await self._write(f"use_time_alignment {int(state)}", timeout)
 
     async def time_alignment_toggle(
-        self, state, timeout: int | float | None = USE_DEFAULT_TIMEOUT
+        self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):
         """
         Toggle the time alignment state.
@@ -578,7 +576,7 @@ class TrinnovAltitude:
         Set the upmixer mode. See `const.UpmixerMode` for available options
         and descriptions.
         """
-        await self._write(f"upmixer {const.UpmixerMode[mode].value}", timeout)
+        await self._write(f"upmixer {mode.value}", timeout)
 
     async def volume_adjust(
         self, delta: int | float, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -672,9 +670,9 @@ class TrinnovAltitude:
                             asyncio.TimeoutError,
                             exceptions.ConnectionTimeoutError,
                             exceptions.ConnectionFailedError,
-                        ) as e:
+                        ) as e2:
                             self.logger.debug(
-                                f"Trinnov Altitude reconnect failed, trying again in {reconnect_backoff} seconds...: {e}"
+                                f"Trinnov Altitude reconnect failed, trying again in {reconnect_backoff} seconds...: {e2}"
                             )
                             await asyncio.sleep(reconnect_backoff)
                     else:
@@ -760,9 +758,11 @@ class TrinnovAltitude:
             await self.disconnect()
             raise exceptions.NotConnectedError()
         else:
-            raw_message = raw_message.decode().rstrip()
-            self.logger.debug(f"Received message from Trinnov Altitude: {raw_message}")
-            return self._process_message(raw_message)
+            raw_message_str = raw_message.decode().rstrip()
+            self.logger.debug(
+                f"Received message from Trinnov Altitude: {raw_message_str}"
+            )
+            return self._process_message(raw_message_str)
 
     async def _write(self, message: str, timeout: float | None):
         """Write a single message to the socket"""
