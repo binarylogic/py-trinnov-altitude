@@ -354,7 +354,7 @@ class TrinnovAltitude:
         """
         Toggle the front display of the processor.
         """
-        await self._write("dim 2", timeout)
+        await self._write("fav_light 2", timeout)
 
     async def level_alignment_off(
         self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
@@ -381,7 +381,7 @@ class TrinnovAltitude:
         await self._write(f"use_level_alignment {int(state)}", timeout)
 
     async def level_alignment_toggle(
-        self, state, timeout: int | float | None = USE_DEFAULT_TIMEOUT
+        self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):
         """
         Toggle the level alignment state.
@@ -409,7 +409,7 @@ class TrinnovAltitude:
         await self._write(f"mute {int(state)}", timeout)
 
     async def mute_toggle(
-        self, state, timeout: int | float | None = USE_DEFAULT_TIMEOUT
+        self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):
         """
         Toggle the mute state.
@@ -496,7 +496,7 @@ class TrinnovAltitude:
         await self._write(f"quick_optimized {int(state)}", timeout)
 
     async def quick_optimized_toggle(
-        self, state, timeout: int | float | None = USE_DEFAULT_TIMEOUT
+        self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):
         """
         Toggle the quick optimized state.
@@ -564,7 +564,7 @@ class TrinnovAltitude:
         await self._write(f"use_time_alignment {int(state)}", timeout)
 
     async def time_alignment_toggle(
-        self, state, timeout: int | float | None = USE_DEFAULT_TIMEOUT
+        self, timeout: int | float | None = USE_DEFAULT_TIMEOUT
     ):
         """
         Toggle the time alignment state.
