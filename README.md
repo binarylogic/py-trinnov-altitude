@@ -1,227 +1,273 @@
 # Trinnov Altitude Python Library
 
-A Python library for interacting with the [Trinnov Altitude processor](https://www.trinnov.com/en/products/altitude32/) via the [TCP/IP automation protocol](docs/Alititude%20Protocol.pdf) provided by the Trinnov Altitude. Initially built for the [Trinnov Altitude Home Assistant integration] (https://github.com/binarylogic/trinnov-altitude-homeassistant)
+[![CI](https://github.com/binarylogic/py-trinnov-altitude/actions/workflows/test.yml/badge.svg)](https://github.com/binarylogic/py-trinnov-altitude/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/trinnov-altitude)](https://pypi.org/project/trinnov-altitude/)
+[![Python Version](https://img.shields.io/pypi/pyversions/trinnov-altitude)](https://pypi.org/project/trinnov-altitude/)
+[![License](https://img.shields.io/github/license/binarylogic/py-trinnov-altitude)](https://github.com/binarylogic/py-trinnov-altitude/blob/master/LICENSE)
 
-## Overview
+A modern Python library for interacting with the [Trinnov Altitude processor](https://www.trinnov.com/en/products/altitude32/) via the [TCP/IP automation protocol](docs/Alititude%20Protocol.pdf). Initially built for the [Trinnov Altitude Home Assistant integration](https://github.com/binarylogic/trinnov-altitude-homeassistant).
 
-The Trinnov Altitude processor is an audio/video processor that exposes an
-automation protocol over TCP/IP for remote control.
+## Features
 
-The interface is a two-way communication protocol. At any time the processor
-can broadcast messages to all connected clients reflecting the current
-processor state. For example, the user could turn the volume knob on the
-processor itself, which would broadcase volume change messages to all connected
-clients.
-
-Therefore, it's important to architect usage of this library to handle state
-changes asynchronously. You should not be polling the processor for state
-changes. Instead, you should register a callback that fires when changes are
-received.
+- **Async/await support** - Built on asyncio for non-blocking I/O
+- **Real-time state synchronization** - Bidirectional communication with automatic state updates
+- **Type hints** - Full type annotation support for better IDE integration
+- **Comprehensive API** - Control volume, sources, presets, and audio processing settings
+- **Automatic reconnection** - Handles connection drops gracefully
+- **Wake-on-LAN** - Power on your processor remotely
 
 ## Installation
 
-```
+```bash
 pip install trinnov-altitude
 ```
 
-## Setup
+## Quick Start
 
-### Power on
+```python
+import asyncio
+from trinnov_altitude.trinnov_altitude import TrinnovAltitude
 
-Powers the processor on via Wake on Lan. The process must be powered on
-before you can connect.
+async def main():
+    # Create client instance
+    altitude = TrinnovAltitude(host="192.168.1.90")
+    
+    try:
+        # Connect to processor
+        await altitude.connect()
+        
+        # Start listening for updates
+        altitude.start_listening()
+        
+        # Wait for initial state sync
+        await altitude.wait_for_initial_sync()
+        
+        # Control the processor
+        await altitude.volume_set(-30.0)
+        await altitude.mute_on()
+        
+        print(f"Current volume: {altitude.volume} dB")
+        print(f"Current source: {altitude.source}")
+        
+    finally:
+        await altitude.disconnect()
+
+asyncio.run(main())
+```
+
+## Usage
+
+### Connecting to the Processor
+
+The Trinnov Altitude must be powered on before you can connect. If you have Wake-on-LAN enabled, you can power it on programmatically:
 
 ```python
 from trinnov_altitude.trinnov_altitude import TrinnovAltitude
 
-altitude = TrinnovAltitude(host = "192.168.1.90", mac = "c8:7f:54:2d:ce:f2")
-await altitude.power_on()
+altitude = TrinnovAltitude(
+    host="192.168.1.90",
+    mac="c8:7f:54:2d:ce:f2"  # Required for Wake-on-LAN
+)
+
+# Power on via Wake-on-LAN
+altitude.power_on()
+
+# Wait a moment for the processor to boot
+await asyncio.sleep(30)
+
+# Connect
+await altitude.connect()
 ```
 
-### Connect
+### Handling State Updates
 
-Connect to the processor via TCP/IP. Note that you must power on the device
-before connecting. The Trinnov Altitude does not have a standby mode that will
-accept connections.
+The processor broadcasts state changes to all connected clients. Register a callback to react to updates:
 
 ```python
-from trinnov_altitude.trinnov_altitude import TrinnovAltitude
+def on_update(event: str, message):
+    if event == "received_message":
+        print(f"Update received: {message}")
+    elif event == "connected":
+        print("Connected to processor")
+    elif event == "disconnected":
+        print("Disconnected from processor")
 
-altitude = TrinnovAltitude(host = "192.168.1.90")
-
-try:
-    await altitude.connect()
-finally:
-    # Always disconnect and cleanup
-    await altitude.disconnect()
+altitude.register_callback(on_update)
+altitude.start_listening()
 ```
 
-### Listen for updates
+### Available State
 
-The processor will broadcast state changes to all connected clients. You must
-explicitly start listening to receive the messages and sync the internal state
-of your object.
+After connecting and calling `start_listening()`, the following state attributes are automatically synchronized:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `altitude.audiosync` | `str \| None` | Current audio sync mode |
+| `altitude.bypass` | `bool \| None` | Bypass state |
+| `altitude.decoder` | `str \| None` | Active decoder |
+| `altitude.dim` | `bool \| None` | Dim state |
+| `altitude.id` | `str \| None` | Processor unique ID |
+| `altitude.mute` | `bool \| None` | Mute state |
+| `altitude.preset` | `str \| None` | Current preset name |
+| `altitude.presets` | `dict[int, str]` | Available presets |
+| `altitude.sampling_rate` | `int \| None` | Current sampling rate |
+| `altitude.source` | `str \| None` | Current source name |
+| `altitude.source_format` | `str \| None` | Source format |
+| `altitude.sources` | `dict[int, str]` | Available sources |
+| `altitude.upmixer` | `str \| None` | Active upmixer |
+| `altitude.version` | `str \| None` | Firmware version |
+| `altitude.volume` | `float \| None` | Volume level in dB |
+
+## API Reference
+
+### Volume Control
 
 ```python
-from trinnov_altitude.trinnov_altitude import TrinnovAltitude
-
-altitude = TrinnovAltitude(host = "192.168.1.90")
-
-# Optionally define a callback to be fired on each individual update
-def callback(message):
-    # react to the change here
-    pass
-
-# Start listening for updates in an async.io Task
-asyncio.create_task(altitude.start_listening(callback: callback))
+await altitude.volume_set(-30.0)              # Set absolute volume in dB
+await altitude.volume_adjust(2.5)             # Adjust by relative amount
+await altitude.volume_up()                    # Increase by 0.5 dB
+await altitude.volume_down()                  # Decrease by 0.5 dB
+await altitude.volume_ramp(-25.0, 2000)       # Ramp to volume over 2000ms
+await altitude.volume_percentage_set(75.0)    # Set volume by percentage
 ```
 
-## State
-
-State will be available shortly after connecting. When a client connects to the
-processor, it will send a list of messages reflecting the current state. The
-`start_listening` method will receive these updates in the background and sync
-your object with the processor's state.
+### Mute Control
 
 ```python
-altitude.audiosync: bool | None # Current state of audiosync
-altitude.bypass: bool | None = None # Current state of bypass
-altitude.decoder: bool | None = None # Current decoder being used
-altitude.dim: bool | None = None # Current state of dim
-altitude.id: str | None = None # Unique ID of the processor
-altitude.mute: bool | None = None # Current state of mute
-altitude.presets: dict = {} # Dictionary of all presets and their names
-altitude.source: str | None = None # Current source
-altitude.sources: dict = {} # Dictionary of all sources and their names
-altitude.upmixer: str | None = None # Current upmixer being used
-altitude.version: str | None = None # Software version of the processor
-altitude.volume: float | None = None # Current volume level in dB
-```
-
-## Commands
-
-All commands assume you have [setup](#setup) your Trinnov Altitude client.
-
-For a full list of commands, see the [`TrinnovAltitude` class](trinnov_altitude/trinnov_altitude.py),
-
-### Acoustic Correction
-
-```python
-await altitude.acoustic_correction_off()
-await altitude.acoustic_correction_on()
-await altitude.acoustic_correction_set(state: bool)
-await altitude.acoustic_correction_toggle()
-```
-
-### Bypass
-
-```python
-await altitude.bypass_off()
-await altitude.bypass_on()
-await altitude.bypass_set(state: bool)
-await altitude.bypass_toggle()
-```
-
-### Dim
-
-```python
-await altitude.dim_off()
-await altitude.dim_on()
-await altitude.dim_set(state: bool)
-await altitude.dim_toggle()
-```
-
-### Front display
-
-```python
-await altitude.dim_off()
-await altitude.dim_on()
-await altitude.dim_set(state: bool)
-await altitude.dim_toggle()
-```
-
-### Level alignment
-
-```python
-await altitude.level_alignment_off()
-await altitude.level_alignment_on()
-await altitude.level_alignment_set(state: bool)
-await altitude.level_alignment_toggle()
-```
-
-### Mute
-
-```python
-await altitude.mute_off()
 await altitude.mute_on()
-await altitude.mute_set(state: bool)
+await altitude.mute_off()
+await altitude.mute_set(True)
 await altitude.mute_toggle()
 ```
 
-### Page adjust
+### Source Selection
 
 ```python
-await altitude.page_adjust(delta: int)
-await altitude.page_down()
-await altitude.page_up()
-```
-
-### Power
-
-```python
-altitude.power_on()
-await altitude.power_off()
+await altitude.source_set(0)                  # Set source by index
+await altitude.source_set_by_name("Apple TV") # Set source by name
+await altitude.source_get()                   # Request current source
 ```
 
 ### Presets
 
 ```python
-await altitude.preset_get()
-await altitude.preset_set(id: int)
+await altitude.preset_set(1)                  # Set preset by index
+await altitude.preset_get()                   # Request current preset
 ```
 
-### Quick optimized
+### Audio Processing
 
 ```python
-await altitude.quick_optimized_off()
-await altitude.quick_optimized_on()
-await altitude.quick_optimized_set(state: bool)
-await altitude.quick_optimized_toggle()
-```
+# Bypass
+await altitude.bypass_on()
+await altitude.bypass_off()
+await altitude.bypass_toggle()
 
-### Remapping mode
+# Acoustic correction
+await altitude.acoustic_correction_on()
+await altitude.acoustic_correction_off()
 
-```python
-await altitude.remapping_mode_set(mode: const.RemappingMode)
-```
-
-### Sources
-
-```python
-await altitude.source_set(id: int)
-```
-
-### Time alignment
-
-```python
-await altitude.time_alignment_off()
+# Time alignment
 await altitude.time_alignment_on()
-await altitude.time_alignment_set(state: bool)
-await altitude.time_alignment_toggle()
+await altitude.time_alignment_off()
+
+# Level alignment
+await altitude.level_alignment_on()
+await altitude.level_alignment_off()
+
+# Upmixer
+from trinnov_altitude.const import UpmixerMode
+await altitude.upmixer_set(UpmixerMode.MODE_AURO3D)
+
+# Remapping mode
+from trinnov_altitude.const import RemappingMode
+await altitude.remapping_mode_set(RemappingMode.MODE_3D)
 ```
 
-### Upmixer
+### Display & UI
 
 ```python
-await altitude.source_set(mode: const.UpmixerMode)
+# Dim
+await altitude.dim_on()
+await altitude.dim_off()
+
+# Front display
+await altitude.front_display_on()
+await altitude.front_display_off()
+
+# Page navigation
+await altitude.page_up()
+await altitude.page_down()
+await altitude.page_adjust(2)  # Move 2 pages
 ```
 
-### Volume
+### Power Control
 
 ```python
-await altitude.volume_adjust(delta: int | float)
-await altitude.volume_down()
-await altitude.volume_set(db: int | float)
-await altitude.volume_ramp(db: int | float, duration: int)
-await altitude.volume_up()
+altitude.power_on()                # Wake-on-LAN (requires MAC address)
+await altitude.power_off()         # Power off processor
 ```
+
+For a complete list of methods, see the [`TrinnovAltitude` class](trinnov_altitude/trinnov_altitude.py).
+
+## Development
+
+This project uses modern Python tooling:
+
+- **[uv](https://github.com/astral-sh/uv)** - Fast Python package installer
+- **[ruff](https://github.com/astral-sh/ruff)** - Fast Python linter and formatter
+- **[task](https://taskfile.dev)** - Task runner for development workflows
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/binarylogic/py-trinnov-altitude.git
+cd py-trinnov-altitude
+
+# Install task (macOS)
+brew install go-task/tap/go-task
+
+# Setup development environment
+task dev
+```
+
+### Available Tasks
+
+```bash
+task install      # Install dependencies
+task test         # Run tests
+task lint         # Run linting
+task lint:fix     # Run linting with auto-fix
+task format       # Format code
+task format:check # Check code formatting
+task check        # Run all checks (lint + format + test)
+task build        # Build package
+task clean        # Clean build artifacts
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+task test
+
+# Or use pytest directly
+pytest -v
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Related Projects
+
+- [Trinnov Altitude Home Assistant Integration](https://github.com/binarylogic/trinnov-altitude-homeassistant) - Home Assistant integration using this library
+
+## Acknowledgments
+
+- [Trinnov Audio](https://www.trinnov.com/) for the Altitude processor and protocol documentation
