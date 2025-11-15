@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/binarylogic/py-trinnov-altitude/actions/workflows/test.yml/badge.svg)](https://github.com/binarylogic/py-trinnov-altitude/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/trinnov-altitude)](https://pypi.org/project/trinnov-altitude/)
-[![Python Version](https://img.shields.io/pypi/pyversions/trinnov-altitude)](https://pypi.org/project/trinnov-altitude/)
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/trinnov-altitude/)
 [![License](https://img.shields.io/github/license/binarylogic/py-trinnov-altitude)](https://github.com/binarylogic/py-trinnov-altitude/blob/master/LICENSE)
 
 A modern Python library for interacting with the [Trinnov Altitude processor](https://www.trinnov.com/en/products/altitude32/) via the [TCP/IP automation protocol](docs/Alititude%20Protocol.pdf). Initially built for the [Trinnov Altitude Home Assistant integration](https://github.com/binarylogic/trinnov-altitude-homeassistant).

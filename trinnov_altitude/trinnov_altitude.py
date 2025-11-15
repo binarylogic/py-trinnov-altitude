@@ -5,17 +5,12 @@ Implements the Trinnov Altitude processor automation protocol over TCP/IP
 import asyncio
 import logging
 import re
-import sys
 from collections.abc import Callable
+from typing import TypeAlias
 
 from wakeonlan import send_magic_packet
 
 from trinnov_altitude import const, exceptions, messages
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 Callback: TypeAlias = Callable[[str, messages.Message | None], None]
 
