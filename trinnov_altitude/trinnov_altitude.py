@@ -684,7 +684,6 @@ class TrinnovAltitude:
 
     def _process_message(self, raw_message: str) -> messages.Message:  # noqa: C901
         """Receive a single message off of the socket and process it."""
-        print(raw_message)
         message = messages.message_factory(raw_message)
 
         if isinstance(message, messages.AudiosyncMessage):
