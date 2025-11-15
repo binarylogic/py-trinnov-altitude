@@ -3,8 +3,10 @@ Utilities for mocking a Trinnov Altitude
 """
 
 import asyncio
+import contextlib
 import logging
 import re
+
 from trinnov_altitude.trinnov_altitude import TrinnovAltitude
 
 
@@ -122,12 +124,8 @@ class MockTrinnovAltitudeServer:
         self.volume = -40
 
     async def start_server(self):
-        self.logger.info(
-            "Starting mock Trinnov Altitude server on %s:%d", self.host, self.port
-        )
-        self.server = await asyncio.start_server(
-            self.handle_client, self.host, self.port
-        )
+        self.logger.info("Starting mock Trinnov Altitude server on %s:%d", self.host, self.port)
+        self.server = await asyncio.start_server(self.handle_client, self.host, self.port)
         self.logger.info("Mock Trinnov Altitude server started")
         await self.server.start_serving()
 
@@ -162,9 +160,7 @@ class MockTrinnovAltitudeServer:
         try:
             # When you connect to an Altitude it will send a welcome message with
             # the firmware vesion and ID of the unit.
-            writer.write(
-                b"Welcome on Trinnov Optimizer (Version 4.3.2rc1, ID 10485761)\n"
-            )
+            writer.write(b"Welcome on Trinnov Optimizer (Version 4.3.2rc1, ID 10485761)\n")
             await writer.drain()
 
             # An actual Altitude will wait to send the initial state messages
@@ -201,10 +197,8 @@ class MockTrinnovAltitudeServer:
             self.active_handlers.discard(task)
             writer.close()
 
-            try:
+            with contextlib.suppress(OSError):
                 await writer.wait_closed()
-            except OSError:
-                pass
 
             self.logger.info("Client disconnected")
 

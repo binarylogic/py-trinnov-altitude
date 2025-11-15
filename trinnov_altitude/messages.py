@@ -3,12 +3,12 @@ from __future__ import annotations
 import re
 
 AUDIO_FORMAT_MAPPING = {
-  "ATMOS TrueHD": "Dolby Atmos/Dolby TrueHD",
-  "DTS:X MA": "DTS:X Master Audio",
-  "DTS-HD MA": "DTS-HD Master Audio",
-  "ATMOS DD+": "Dolby Atmos/Dolby Digital Plus",
-  "DD": "Dolby Digital",
-  "TrueHD": "Dolby TrueHD"
+    "ATMOS TrueHD": "Dolby Atmos/Dolby TrueHD",
+    "DTS:X MA": "DTS:X Master Audio",
+    "DTS-HD MA": "DTS-HD Master Audio",
+    "ATMOS DD+": "Dolby Atmos/Dolby Digital Plus",
+    "DD": "Dolby Digital",
+    "TrueHD": "Dolby TrueHD",
 }
 
 
@@ -23,18 +23,15 @@ def message_factory(message) -> Message:  # noqa: C901
         # A -1 will be sent, which means the built-in preset is being used
         state = max(0, int(match.group(1)))
         return CurrentPresetMessage(state)
-    elif match := re.match(r"^CURRENT_PROFILE\s(-?\d+)", message):
-        state = int(match.group(1))
-        return CurrentSourceMessage(state)
-    elif match := re.match(r"^META_PRESET_LOADED\s(-?\d+)", message):
+    elif (match := re.match(r"^CURRENT_PROFILE\s(-?\d+)", message)) or (
+        match := re.match(r"^META_PRESET_LOADED\s(-?\d+)", message)
+    ):
         state = int(match.group(1))
         return CurrentSourceMessage(state)
     elif match := re.match(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)", message):
         format = match.group(1)
         return CurrentSourceFormat(format)
-    elif match := re.match(
-        r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)", message
-    ):
+    elif match := re.match(r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)", message):
         nonaudio = bool(int(match.group(1)))
         playable = bool(int(match.group(2)))
         decoder = match.group(3)
@@ -112,9 +109,7 @@ class CurrentSourceMessage(Message):
 
 
 class DecoderMessage(Message):
-    def __init__(
-        self, nonaudio: bool, playable: bool, decoder: str, upmixer: str
-    ) -> None:
+    def __init__(self, nonaudio: bool, playable: bool, decoder: str, upmixer: str) -> None:
         self.nonaudio = nonaudio
         self.playable = playable
         self.decoder = decoder

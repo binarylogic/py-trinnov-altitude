@@ -25,9 +25,7 @@ class InvalidMacAddressOUIError(Exception):
 
     def __init__(self, mac_oui, valid_ouis):
         valid_ouis_str = ", ".join(valid_ouis)
-        self.message = (
-            f"Invalid MAC address OUI {mac_oui}, must be one of {valid_ouis_str}"
-        )
+        self.message = f"Invalid MAC address OUI {mac_oui}, must be one of {valid_ouis_str}"
         super().__init__(self.message)
 
 

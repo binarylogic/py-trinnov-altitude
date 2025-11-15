@@ -1,0 +1,25 @@
+# Ruff configuration
+# https://docs.astral.sh/ruff/configuration/
+
+line-length = 127
+target-version = "py38"
+
+[lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "C90",    # mccabe complexity
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "ASYNC",  # flake8-async
+]
+ignore = []
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.isort]
+known-first-party = ["trinnov_altitude"]

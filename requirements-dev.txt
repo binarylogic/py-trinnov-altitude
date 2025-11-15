@@ -1,3 +1,3 @@
-flake8
+ruff
 pytest>=6.0
 pytest-asyncio
