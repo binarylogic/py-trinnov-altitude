@@ -1,7 +1,6 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# CI workflow for testing across multiple Python versions
 
-name: Test
+name: CI
 
 on:
   push:
@@ -13,27 +12,64 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  test:
+    name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Install uv
         uses: astral-sh/setup-uv@v4
-      - name: Set up Python 3.12
+
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
+
       - name: Install dependencies
         run: |
           uv pip install --system -r requirements-dev.txt
           uv pip install --system -e .
+
       - name: Lint with ruff
-        run: |
-          ruff check .
-      - name: Format check with ruff
-        run: |
-          ruff format --check .
+        run: uvx ruff check .
+
+      - name: Check formatting with ruff
+        run: uvx ruff format --check .
+
       - name: Test with pytest
+        run: pytest -v
+
+  # Fast check job for quick feedback on common issues
+  quick-check:
+    name: Quick checks (latest Python)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install task
         run: |
-          pytest
+          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -r requirements-dev.txt
+          uv pip install --system -e .
+
+      - name: Run all checks
+        run: task check
