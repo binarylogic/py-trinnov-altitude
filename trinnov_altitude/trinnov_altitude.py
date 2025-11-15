@@ -77,6 +77,7 @@ class TrinnovAltitude:
         self.mute: bool | None = None
         self.preset: str | None = None
         self.presets: dict[int, str] = {}
+        self.sampling_rate: int | None = None
         self.source: str | None = None
         self.source_format: str | None = None
         self.sources: dict[int, str] = {}
