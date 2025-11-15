@@ -44,7 +44,7 @@ class NoMacAddressError(Exception):
 
     def __init__(
         self,
-        message="You must supply a mac address up instantiation to power on the Trinnov Altitude.?",
+        message="You must supply a mac address upon instantiation to power on the Trinnov Altitude.",
     ):
         self.message = message
         super().__init__(self.message)
