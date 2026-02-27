@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v2.0.1...v3.0.0) (2026-02-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* add strict protocol surface and HA adapter/bridge APIs
+
+### Features
+
+* add strict protocol surface and HA adapter/bridge APIs ([f790a62](https://github.com/binarylogic/py-trinnov-altitude/commit/f790a62855e0153879bff91562d7861d185d1122))
+
 ## 2.0.1 - 2026-02-27
 
 ### Fixed
