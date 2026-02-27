@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.1.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.0.0...v3.1.0) (2026-02-27)
+
+### Features
+
+- add `command_bridge` helpers for Home Assistant command parsing, normalization, and enum coercion
+
 ## [3.0.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v2.0.1...v3.0.0) (2026-02-27)
 
 
