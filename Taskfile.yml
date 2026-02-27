@@ -37,7 +37,7 @@ tasks:
   typecheck:
     desc: Run static type checking
     cmds:
-      - '{{.UV}} run mypy trinnov_altitude'
+      - '{{.UV}} run ty check trinnov_altitude'
 
   check:
     desc: Run all checks (lint + format + typecheck + test)
@@ -56,7 +56,7 @@ tasks:
     desc: Clean build artifacts
     cmds:
       - rm -rf build dist *.egg-info
-      - rm -rf .pytest_cache .ruff_cache .mypy_cache
+      - rm -rf .pytest_cache .ruff_cache .mypy_cache .ty_cache
       - find . -type d -name __pycache__ -exec rm -rf {} +
       - find . -type f -name "*.pyc" -delete
 

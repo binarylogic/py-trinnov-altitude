@@ -6,7 +6,7 @@
 
 - [ ] `uv run ruff check .`
 - [ ] `uv run ruff format --check .`
-- [ ] `uv run mypy trinnov_altitude`
+- [ ] `uv run ty check trinnov_altitude`
 - [ ] `uv run pytest -v`
 
 ## Release impact

@@ -22,6 +22,6 @@ updates:
         applies-to: version-updates
         patterns:
           - "ruff"
-          - "mypy"
+          - "ty"
           - "pytest*"
           - "hatchling"

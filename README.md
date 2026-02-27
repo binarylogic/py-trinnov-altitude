@@ -87,7 +87,7 @@ await client.command("volume -20", wait_for_ack=True, ack_timeout=2.0)
 uv sync --group dev
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy trinnov_altitude
+uv run ty check trinnov_altitude
 uv run pytest -v
 ```
 
@@ -97,6 +97,10 @@ Or use task wrappers:
 task dev
 task check
 ```
+
+If you use Pyx as your package index, configure `uv` with your index credentials
+in the environment before running `uv sync` (for example `UV_INDEX_URL`,
+`UV_INDEX_USERNAME`, and `UV_INDEX_PASSWORD`).
 
 ## Release
 

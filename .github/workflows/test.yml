@@ -41,8 +41,8 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check .
 
-      - name: Mypy
-        run: uv run mypy trinnov_altitude
+      - name: Ty
+        run: uv run ty check trinnov_altitude
 
   tests:
     name: Tests (Python ${{ matrix.python-version }})
