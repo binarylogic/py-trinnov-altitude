@@ -109,7 +109,7 @@ async def test_start_and_stop_are_idempotent():
 
 
 @pytest.mark.asyncio
-async def test_sync_requires_catalog_clear_even_when_empty():
+async def test_sync_allows_missing_catalog_clear_messages():
     transport = FakeTransport(
         incoming_lines=[
             "Welcome on Trinnov Optimizer (Version 4.3.2, ID 42)",
@@ -131,6 +131,34 @@ async def test_sync_requires_catalog_clear_even_when_empty():
     assert client.state.synced is True
     assert client.state.preset is None
     assert client.state.source is None
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_sync_allows_altitude_ci_style_startup_without_catalogs():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "META_PRESET_LOADED 0",
+            "CURRENT_PROFILE 0",
+            "DECODER NONAUDIO 0 PLAYABLE 0 DECODER none UPMIXER none",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    assert client.state.synced is True
+    assert client.state.version == "5.3.0pre3+#+"
+    assert client.state.id == "19923109"
+    assert client.state.current_preset_index == 0
+    assert client.state.current_source_index == 0
 
     await client.stop()
 

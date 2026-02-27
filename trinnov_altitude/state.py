@@ -132,8 +132,8 @@ class AltitudeState:
     def synced(self) -> bool:
         return (
             self._seen_welcome
-            and self._seen_preset_catalog
-            and self._seen_source_catalog
             and self._seen_current_preset
             and self._seen_current_source
+            and (self._seen_preset_catalog or self.current_preset_index is not None)
+            and (self._seen_source_catalog or self.current_source_index is not None)
         )
