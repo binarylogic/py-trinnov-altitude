@@ -185,12 +185,14 @@ async def test_current_indices_backfill_names_when_catalog_arrives_later():
     )
 
     await client.start()
-    await client.wait_synced(timeout=1)
-
-    assert client.state.preset == "Cinema"
-    assert client.state.source == "Shield"
-
-    await client.stop()
+    try:
+        await client.wait_synced(timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.preset == "Cinema"), timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.source == "Shield"), timeout=1)
+        assert client.state.preset == "Cinema"
+        assert client.state.source == "Shield"
+    finally:
+        await client.stop()
 
 
 @pytest.mark.asyncio
@@ -453,5 +455,5 @@ async def _wait_for(predicate):
 
     event = asyncio.Event()
     while not predicate():
-        with contextlib.suppress(TimeoutError):
+        with contextlib.suppress(asyncio.TimeoutError, TimeoutError):
             await asyncio.wait_for(event.wait(), timeout=0.01)
