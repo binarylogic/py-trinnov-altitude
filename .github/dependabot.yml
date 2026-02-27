@@ -6,7 +6,13 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "06:00"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: "pip"
     directory: "/"
@@ -14,7 +20,9 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "06:15"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
     allow:
       - dependency-type: "direct"
     groups:
