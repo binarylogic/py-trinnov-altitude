@@ -1,9 +1,6 @@
-import logging
-import os
+"""Public package exports for Trinnov Altitude."""
 
-log_level = os.getenv("LOG_LEVEL", "info")
-level = logging.getLevelName(log_level.upper())
-log_format = "[L %(lineno)s - %(funcName)5s() ] %(message)s"
-logging.basicConfig(level=level, format=log_format)
+from trinnov_altitude.client import TrinnovAltitudeClient
 
-__version__ = "1.2.8"
+__all__ = ["TrinnovAltitudeClient"]
+__version__ = "2.0.0"

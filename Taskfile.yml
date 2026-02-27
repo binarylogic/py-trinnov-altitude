@@ -1,63 +1,66 @@
 version: '3'
 
 vars:
-  PYTHON: python3
   UV: uv
 
 tasks:
   install:
-    desc: Install dependencies
+    desc: Create/update dev environment
     cmds:
-      - '{{.UV}} pip install -e .'
-      - '{{.UV}} pip install -r requirements-dev.txt'
+      - '{{.UV}} sync --group dev'
 
   test:
     desc: Run tests
     cmds:
-      - pytest -v
+      - '{{.UV}} run pytest -v'
 
   lint:
     desc: Run linting with ruff
     cmds:
-      - '{{.UV}}x ruff check .'
+      - '{{.UV}} run ruff check .'
 
   lint:fix:
     desc: Run linting with auto-fix
     cmds:
-      - '{{.UV}}x ruff check --fix .'
+      - '{{.UV}} run ruff check --fix .'
 
   format:
     desc: Format code with ruff
     cmds:
-      - '{{.UV}}x ruff format .'
+      - '{{.UV}} run ruff format .'
 
   format:check:
     desc: Check code formatting
     cmds:
-      - '{{.UV}}x ruff format --check .'
+      - '{{.UV}} run ruff format --check .'
+
+  typecheck:
+    desc: Run static type checking
+    cmds:
+      - '{{.UV}} run mypy trinnov_altitude'
 
   check:
-    desc: Run all checks (lint + format + test)
+    desc: Run all checks (lint + format + typecheck + test)
     cmds:
       - task: lint
       - task: format:check
+      - task: typecheck
       - task: test
 
   build:
     desc: Build package
     cmds:
-      - '{{.PYTHON}} -m build'
+      - '{{.UV}} build'
 
   clean:
     desc: Clean build artifacts
     cmds:
       - rm -rf build dist *.egg-info
-      - rm -rf .pytest_cache .ruff_cache
+      - rm -rf .pytest_cache .ruff_cache .mypy_cache
       - find . -type d -name __pycache__ -exec rm -rf {} +
       - find . -type f -name "*.pyc" -delete
 
   dev:
     desc: Setup development environment
     cmds:
-      - '{{.UV}} venv'
       - task: install

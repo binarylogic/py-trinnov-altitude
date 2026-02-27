@@ -1,8 +1,75 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "trinnov-altitude"
+dynamic = ["version"]
+description = "Python client for interfacing with the Trinnov Altitude processor."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Ben Johnson", email = "ben@binarylogic.com" }]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Home Automation",
+]
+dependencies = [
+  "wakeonlan>=3.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/binarylogic/py-trinnov-altitude"
+
+[tool.hatch.version]
+path = "trinnov_altitude/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["trinnov_altitude"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"trinnov_altitude/py.typed" = "trinnov_altitude/py.typed"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.18.0",
+  "pytest>=8.3.0",
+  "pytest-asyncio>=1.1.0",
+  "ruff>=0.13.0",
+]
 
 [tool.pytest.ini_options]
 log_level = "DEBUG"
-testpaths = "tests"
-norecursedirs = ".git"
+testpaths = ["tests"]
+norecursedirs = [".git"]
+
+[tool.ruff]
+line-length = 127
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "C90", "UP", "B", "SIM", "ASYNC"]
+ignore = []
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["trinnov_altitude"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["trinnov_altitude"]
+warn_unused_ignores = true
+warn_return_any = true
+show_error_codes = true
+pretty = true
