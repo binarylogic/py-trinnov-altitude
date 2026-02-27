@@ -111,12 +111,12 @@ Pyx is optional in this repo. You can keep publishing to PyPI/TestPyPI only.
 
 ## Release
 
-1. Update version in `trinnov_altitude/__init__.py`.
-2. Update `CHANGELOG.md`.
-3. Merge to `master` (CI runs quality/tests/package checks).
-4. Create a prerelease tag like `vX.Y.Zrc1` to publish to TestPyPI.
-5. Create a full release tag like `vX.Y.Z` to publish to PyPI.
-6. Ensure release tag matches `__version__` (workflow enforces this).
+1. Merge conventional-commit changes to `master`.
+2. Wait for the `release-please` workflow to open/update a release PR.
+3. Review and merge the release PR (this updates `CHANGELOG.md` and `__version__`).
+4. Release Please creates the GitHub Release and tag.
+5. The `Release` workflow publishes artifacts to PyPI automatically for published releases.
+6. For TestPyPI or Pyx-only publishing, run `Release` manually with `workflow_dispatch`.
 
 ## Maintenance
 

@@ -9,12 +9,7 @@ Apply to `master`:
 - Dismiss stale approvals on new commits
 - Require status checks to pass before merging
 - Required checks:
-  - `Quality (3.13)`
-  - `Tests (Python 3.10)`
-  - `Tests (Python 3.11)`
-  - `Tests (Python 3.12)`
-  - `Tests (Python 3.13)`
-  - `Package build check`
+  - `CI`
 - Require branches to be up to date before merging
 - Restrict force pushes and branch deletion
 
@@ -28,12 +23,11 @@ Dependabot is configured for:
 ## Release procedure
 
 1. Ensure `master` is green.
-2. Bump `__version__` in `trinnov_altitude/__init__.py`.
-3. Update `CHANGELOG.md`.
-4. Commit and merge.
-5. Create prerelease tag `vX.Y.ZrcN` to publish to TestPyPI.
-6. Validate install from TestPyPI.
-7. Create release tag `vX.Y.Z` to publish to PyPI.
+2. Merge conventional commits to `master` (feat/fix/breaking).
+3. Wait for `release-please` to open or update the release PR.
+4. Review and merge the release PR.
+5. Confirm the generated GitHub Release triggered the `Release` publish workflow.
+6. Optionally run `Release` manually with `target=testpypi` for staged validation.
 
 ### Optional Pyx publish
 
@@ -51,4 +45,4 @@ If bad release is published:
 
 1. Yank the PyPI release version.
 2. Create patch fix on `master`.
-3. Cut new release `vX.Y.(Z+1)`.
+3. Merge the next release-please PR to publish `vX.Y.(Z+1)`.
