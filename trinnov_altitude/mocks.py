@@ -64,7 +64,7 @@ class MockTrinnovAltitudeServer:
 
         self.logger.info("Mock server stopped")
 
-    async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:  # noqa: C901
         self.logger.debug("Client connected")
 
         task = asyncio.current_task()

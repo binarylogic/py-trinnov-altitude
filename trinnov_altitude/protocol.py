@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 AUDIO_FORMAT_MAPPING = {
     "ATMOS TrueHD": "Dolby Atmos/Dolby TrueHD",

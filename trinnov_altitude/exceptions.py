@@ -19,8 +19,7 @@ class ConnectionTimeoutError(TrinnovAltitudeError):
 
     def __init__(self, message: str | None = None):
         super().__init__(
-            message
-            or "Connection to the Trinnov Altitude timed out. Is it powered on? Try calling `power_on` first."
+            message or "Connection to the Trinnov Altitude timed out. Is it powered on? Try calling `power_on` first."
         )
 
 

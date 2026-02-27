@@ -77,7 +77,7 @@ class AltitudeState:
         self._seen_current_preset = False
         self._seen_current_source = False
 
-    def apply(self, message: Message) -> None:
+    def apply(self, message: Message) -> None:  # noqa: C901
         if isinstance(message, AudiosyncMessage):
             self.audiosync = message.mode
         elif isinstance(message, BypassMessage):

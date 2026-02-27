@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from collections import deque
 
 import pytest
@@ -348,5 +349,10 @@ async def test_volume_percentage_set_validates_bounds():
 
 
 async def _wait_for(predicate):
+    if predicate():
+        return
+
+    event = asyncio.Event()
     while not predicate():
-        await asyncio.sleep(0)
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(event.wait(), timeout=0.01)
