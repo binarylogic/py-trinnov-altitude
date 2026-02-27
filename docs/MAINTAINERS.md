@@ -35,6 +35,16 @@ Dependabot is configured for:
 6. Validate install from TestPyPI.
 7. Create release tag `vX.Y.Z` to publish to PyPI.
 
+### Optional Pyx publish
+
+If you also need a Pyx release, run `Release` via `workflow_dispatch` with
+`target=pyx`.
+
+Required repository secrets:
+
+- `PYX_API_KEY`
+- `PYX_PUBLISH_URL` (Pyx upload endpoint, e.g. `https://api.pyx.dev/v1/upload/<org>/<workspace>`)
+
 ## Emergency rollback
 
 If bad release is published:

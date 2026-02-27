@@ -98,9 +98,16 @@ task dev
 task check
 ```
 
-If you use Pyx as your package index, configure `uv` with your index credentials
-in the environment before running `uv sync` (for example `UV_INDEX_URL`,
-`UV_INDEX_USERNAME`, and `UV_INDEX_PASSWORD`).
+## Pyx (optional)
+
+Pyx is optional in this repo. You can keep publishing to PyPI/TestPyPI only.
+
+- Install via Pyx: authenticate `uv` with `PYX_API_KEY` and configure your Pyx
+  index URL in `uv` (`uv add --index ...` / `uv sync`).
+- Publish to Pyx: run the `Release` workflow manually with `target=pyx` after
+  setting repository secrets `PYX_API_KEY` and `PYX_PUBLISH_URL`.
+- No dual-publish requirement: use Pyx when you need private/internal package
+  distribution or policy control.
 
 ## Release
 
