@@ -36,7 +36,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
 
       - name: Validate tag matches package version
         if: ${{ github.event_name == 'release' }}
@@ -132,7 +132,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
 
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
