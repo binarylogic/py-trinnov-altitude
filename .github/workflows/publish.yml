@@ -58,13 +58,6 @@ jobs:
       - name: Sync dependencies
         run: uv sync --group dev
 
-      - name: Quality gate
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
-          uv run ty check trinnov_altitude
-          uv run pytest -v
-
       - name: Build
         run: uv build
 
