@@ -1,9 +1,13 @@
 from trinnov_altitude.protocol import (
+    AudiosyncStatusMessage,
+    ByeMessage,
     CurrentPresetMessage,
     CurrentSourceMessage,
     DecoderMessage,
     ErrorMessage,
     PresetMessage,
+    SpeakerInfoMessage,
+    StartRunningMessage,
     UnknownMessage,
     VolumeMessage,
     WelcomeMessage,
@@ -54,6 +58,31 @@ def test_parse_error_message():
     message = parse_message("ERROR: invalid command")
     assert isinstance(message, ErrorMessage)
     assert message.error == "invalid command"
+
+
+def test_parse_audiosync_status_message():
+    message = parse_message("AUDIOSYNC STATUS 1")
+    assert isinstance(message, AudiosyncStatusMessage)
+    assert message.synchronized is True
+
+
+def test_parse_speaker_info_message():
+    message = parse_message("SPEAKER_INFO 0 1.36485 102.091 -43.3817")
+    assert isinstance(message, SpeakerInfoMessage)
+    assert message.speaker_number == 0
+    assert message.radius == 1.36485
+    assert message.theta == 102.091
+    assert message.phi == -43.3817
+
+
+def test_parse_start_running_message():
+    message = parse_message("START_RUNNING")
+    assert isinstance(message, StartRunningMessage)
+
+
+def test_parse_bye_message():
+    message = parse_message("BYE")
+    assert isinstance(message, ByeMessage)
 
 
 def test_parse_unknown_message():

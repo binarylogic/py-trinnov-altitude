@@ -27,6 +27,11 @@ class AudiosyncMessage(Message):
 
 
 @dataclass(frozen=True)
+class AudiosyncStatusMessage(Message):
+    synchronized: bool
+
+
+@dataclass(frozen=True)
 class BypassMessage(Message):
     state: bool
 
@@ -62,6 +67,11 @@ class DimMessage(Message):
 @dataclass(frozen=True)
 class ErrorMessage(Message):
     error: str
+
+
+@dataclass(frozen=True)
+class ByeMessage(Message):
+    pass
 
 
 @dataclass(frozen=True)
@@ -102,6 +112,19 @@ class SourcesClearMessage(Message):
 
 
 @dataclass(frozen=True)
+class SpeakerInfoMessage(Message):
+    speaker_number: int
+    radius: float
+    theta: float
+    phi: float
+
+
+@dataclass(frozen=True)
+class StartRunningMessage(Message):
+    pass
+
+
+@dataclass(frozen=True)
 class UnknownMessage(Message):
     raw_message: str
 
@@ -122,6 +145,10 @@ Rule = tuple[re.Pattern[str], Callable[[re.Match[str]], Message]]
 
 def _to_audiosync(match: re.Match[str]) -> Message:
     return AudiosyncMessage(match.group(1))
+
+
+def _to_audiosync_status(match: re.Match[str]) -> Message:
+    return AudiosyncStatusMessage(bool(int(match.group(1))))
 
 
 def _to_bypass(match: re.Match[str]) -> Message:
@@ -158,6 +185,10 @@ def _to_error(match: re.Match[str]) -> Message:
     return ErrorMessage(match.group(1))
 
 
+def _to_bye(match: re.Match[str]) -> Message:
+    return ByeMessage()
+
+
 def _to_preset(match: re.Match[str]) -> Message:
     return PresetMessage(int(match.group(1)), match.group(2))
 
@@ -182,8 +213,21 @@ def _to_sources_clear(match: re.Match[str]) -> Message:
     return SourcesClearMessage()
 
 
+def _to_speaker_info(match: re.Match[str]) -> Message:
+    return SpeakerInfoMessage(
+        speaker_number=int(match.group(1)),
+        radius=float(match.group(2)),
+        theta=float(match.group(3)),
+        phi=float(match.group(4)),
+    )
+
+
 def _to_srate(match: re.Match[str]) -> Message:
     return SamplingRateMessage(int(match.group(1)))
+
+
+def _to_start_running(match: re.Match[str]) -> Message:
+    return StartRunningMessage()
 
 
 def _to_volume(match: re.Match[str]) -> Message:
@@ -195,8 +239,10 @@ def _to_welcome(match: re.Match[str]) -> Message:
 
 
 PARSER_RULES: tuple[Rule, ...] = (
+    (re.compile(r"^AUDIOSYNC STATUS\s(0|1)$"), _to_audiosync_status),
     (re.compile(r"^AUDIOSYNC\s(.*)$"), _to_audiosync),
     (re.compile(r"^BYPASS\s(0|1)$"), _to_bypass),
+    (re.compile(r"^BYE$"), _to_bye),
     (re.compile(r"^CURRENT_PRESET\s(-?\d+)$"), _to_current_preset),
     (re.compile(r"^META_PRESET_LOADED\s(-?\d+)$"), _to_current_preset),
     (re.compile(r"^CURRENT_PROFILE\s(-?\d+)$"), _to_current_source),
@@ -210,7 +256,12 @@ PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^OK$"), _to_ok),
     (re.compile(r"^PROFILE\s(-?\d+): (.*)$"), _to_source),
     (re.compile(r"^PROFILES_CLEAR$"), _to_sources_clear),
+    (
+        re.compile(r"^SPEAKER_INFO\s(\d+)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)$"),
+        _to_speaker_info,
+    ),
     (re.compile(r"^SRATE\s(\d+)$"), _to_srate),
+    (re.compile(r"^START_RUNNING$"), _to_start_running),
     (re.compile(r"^VOLUME\s(-?\d+(?:\.\d+)?)$"), _to_volume),
     (re.compile(r"^Welcome on Trinnov Optimizer \(Version (\S+), ID (\d+)\)$"), _to_welcome),
 )

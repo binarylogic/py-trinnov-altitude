@@ -9,7 +9,7 @@ class RemappingMode(str, Enum):
     MODE_NONE = "none"
     MODE_2D = "2D"
     MODE_3D = "3D"
-    MODE_AUTOROTATE = "autorotate"
+    MODE_AUTOROUTE = "autoroute"
     MODE_MANUAL = "manual"
 
 
@@ -20,4 +20,4 @@ class UpmixerMode(str, Enum):
     MODE_DOLBY = "dolby"
     MODE_NATIVE = "native"
     MODE_LEGACY = "legacy"
-    MODE_UPMIX_ON_NATIVE = "upmix_on_native"
+    MODE_UPMIX_ON_NATIVE = "upmix on native"

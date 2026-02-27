@@ -4,6 +4,8 @@ from collections import deque
 
 import pytest
 
+from trinnov_altitude import const
+from trinnov_altitude.adapter import AltitudeStateAdapter
 from trinnov_altitude.client import TrinnovAltitudeClient
 from trinnov_altitude.exceptions import (
     CommandRejectedError,
@@ -373,6 +375,75 @@ async def test_volume_percentage_set_validates_bounds():
     await client.volume_percentage_set(50)
     assert any(line.startswith("volume ") for line in transport.sent)
 
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_protocol_helper_commands_emit_expected_lines():
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    await client.preset_label_get(2)
+    await client.presets_get_all()
+    await client.source_name_get(1)
+    await client.state_get_current()
+    await client.change_page(1)
+    await client.optimization_toggle()
+    await client.remapping_mode_set(const.RemappingMode.MODE_AUTOROUTE)
+    await client.upmixer_set(const.UpmixerMode.MODE_UPMIX_ON_NATIVE)
+    await client.bye()
+
+    assert "get_label 2" in transport.sent
+    assert "get_all_label" in transport.sent
+    assert "get_profile_name 1" in transport.sent
+    assert "get_current_state" in transport.sent
+    assert "change_page 1" in transport.sent
+    assert "quick_optimized 2" in transport.sent
+    assert "remapping_mode autoroute" in transport.sent
+    assert "upmixer upmix on native" in transport.sent
+    assert "bye" in transport.sent
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_register_adapter_callback_emits_initial_and_change_events():
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+    adapter = AltitudeStateAdapter()
+    received: list[tuple[object, object, object]] = []
+
+    def on_adapter(snapshot, deltas, events):
+        received.append((snapshot, deltas, events))
+
+    handle = client.register_adapter_callback(adapter, on_adapter)
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await asyncio.sleep(0.01)
+
+    assert received
+    initial_events = received[0][2]
+    assert initial_events
+    assert initial_events[0].kind == "initial"
+
+    transport.push("VOLUME -22.0")
+    await asyncio.sleep(0.01)
+
+    assert any(any(event.kind == "volume_changed" for event in events) for _, _, events in received[1:])
+
+    client.deregister_adapter_callback(handle)
     await client.stop()
 
 

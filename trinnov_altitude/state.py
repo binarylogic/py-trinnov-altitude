@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from trinnov_altitude.protocol import (
     AudiosyncMessage,
+    AudiosyncStatusMessage,
     BypassMessage,
     CurrentPresetMessage,
     CurrentSourceFormatMessage,
@@ -27,6 +28,7 @@ from trinnov_altitude.protocol import (
 @dataclass
 class AltitudeState:
     audiosync: str | None = None
+    audiosync_status: bool | None = None
     bypass: bool | None = None
     decoder: str | None = None
     dim: bool | None = None
@@ -53,6 +55,7 @@ class AltitudeState:
 
     def reset_runtime_values(self) -> None:
         self.audiosync = None
+        self.audiosync_status = None
         self.bypass = None
         self.decoder = None
         self.dim = None
@@ -80,6 +83,8 @@ class AltitudeState:
     def apply(self, message: Message) -> None:  # noqa: C901
         if isinstance(message, AudiosyncMessage):
             self.audiosync = message.mode
+        elif isinstance(message, AudiosyncStatusMessage):
+            self.audiosync_status = message.synchronized
         elif isinstance(message, BypassMessage):
             self.bypass = message.state
         elif isinstance(message, CurrentPresetMessage):

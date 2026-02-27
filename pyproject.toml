@@ -50,6 +50,9 @@ dev = [
 log_level = "DEBUG"
 testpaths = ["tests"]
 norecursedirs = [".git"]
+markers = [
+  "integration_real: read-only tests against a real Trinnov Altitude (manual opt-in via env vars)",
+]
 
 [tool.ruff]
 line-length = 127

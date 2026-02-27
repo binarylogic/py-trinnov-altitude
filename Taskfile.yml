@@ -14,6 +14,14 @@ tasks:
     cmds:
       - '{{.UV}} run pytest -v'
 
+  test:integration-real:
+    desc: Run read-only real-device integration tests (manual opt-in)
+    cmds:
+      - echo "Running read-only real-device integration tests against ${TRINNOV_HOST:-unset}:${TRINNOV_PORT:-44100}"
+      - test "${TRINNOV_ITEST:-}" = "1" || (echo "Set TRINNOV_ITEST=1 to enable real-device tests" && exit 1)
+      - test -n "${TRINNOV_HOST:-}" || (echo "Set TRINNOV_HOST to your Altitude host/IP" && exit 1)
+      - '{{.UV}} run pytest -v -m integration_real'
+
   lint:
     desc: Run linting with ruff
     cmds:

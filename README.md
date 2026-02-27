@@ -72,6 +72,34 @@ client.register_callback(on_event)
 
 Callback exceptions are isolated and logged (they do not crash the listener).
 
+## HA Adapter
+
+Use `trinnov_altitude.adapter.AltitudeStateAdapter` to convert mutable runtime state into immutable snapshots plus typed deltas/events:
+
+- `snapshot`: stable full-state view for coordinator data
+- `deltas`: field-level changes since previous snapshot
+- `events`: integration-friendly event stream (volume, mute, source, preset, etc.)
+
+You can wire this directly through the client:
+
+```python
+from trinnov_altitude.adapter import AltitudeStateAdapter
+
+adapter = AltitudeStateAdapter()
+
+def on_update(snapshot, deltas, events):
+    ...
+
+handle = client.register_adapter_callback(adapter, on_update)
+# later: client.deregister_adapter_callback(handle)
+```
+
+For Home Assistant coordinator/event-bus integration, use `trinnov_altitude.ha_bridge`:
+
+- `coordinator_payload(snapshot)`
+- `to_ha_events(events)`
+- `build_bridge_update(snapshot, deltas, events)`
+
 ## Command ACKs
 
 You can use fire-and-forget commands (default) or explicit ACK waiting:
@@ -98,6 +126,22 @@ task dev
 task check
 ```
 
+## Real Device Integration Tests (Read-Only)
+
+The test suite includes a manual, read-only integration tier for validating behavior against real hardware.
+
+- Marker: `integration_real`
+- Opt-in gate: `TRINNOV_ITEST=1`
+- Target host: `TRINNOV_HOST=<ip-or-hostname>`
+- Optional port override: `TRINNOV_PORT=44100`
+- If the device is offline/unreachable, tests are skipped.
+
+These tests intentionally avoid mutating commands (no power/preset/source/volume state changes).
+
+```bash
+TRINNOV_ITEST=1 TRINNOV_HOST=192.168.30.3 task test:integration-real
+```
+
 ## Pyx (optional)
 
 Pyx is optional in this repo. You can keep publishing to PyPI/TestPyPI only.
@@ -122,3 +166,4 @@ Pyx is optional in this repo. You can keep publishing to PyPI/TestPyPI only.
 
 - Migration guide: [docs/MIGRATION_V2.md](docs/MIGRATION_V2.md)
 - Maintainer runbook: [docs/MAINTAINERS.md](docs/MAINTAINERS.md)
+- Protocol reference used for implementation: [docs/Altitude Protocol.pdf](docs/Altitude%20Protocol.pdf) (v1.15, 2019-04-19)

@@ -14,11 +14,13 @@ from typing import Protocol
 from wakeonlan import send_magic_packet
 
 from trinnov_altitude import const, exceptions
+from trinnov_altitude.adapter import AdapterEvent, AltitudeSnapshot, AltitudeStateAdapter, StateDelta
 from trinnov_altitude.protocol import ErrorMessage, Message, OKMessage, parse_message
 from trinnov_altitude.state import AltitudeState
 from trinnov_altitude.transport import TcpTransport
 
 Callback = Callable[[str, Message | None], None]
+AdapterCallback = Callable[[AltitudeSnapshot, list[StateDelta], list[AdapterEvent]], None]
 RandomFunc = Callable[[], float]
 
 
@@ -115,6 +117,32 @@ class TrinnovAltitudeClient:
 
     def deregister_callback(self, callback: Callback) -> None:
         self._callbacks.discard(callback)
+
+    def register_adapter_callback(self, adapter: AltitudeStateAdapter, callback: AdapterCallback) -> Callback:
+        """Register a callback that receives adapter snapshots, deltas and events."""
+
+        def wrapped(event: str, message: Message | None) -> None:
+            if event != "received_message" or message is None:
+                return
+
+            initial = adapter.last_snapshot is None
+            snapshot, deltas, events = adapter.update(self.state)
+
+            if initial:
+                callback(snapshot, deltas, [AdapterEvent(kind="initial", payload={}), *events])
+                return
+
+            if not deltas and not events:
+                return
+
+            callback(snapshot, deltas, events)
+
+        self.register_callback(wrapped)
+        return wrapped
+
+    def deregister_adapter_callback(self, callback: Callback) -> None:
+        """Deregister a callback previously returned by ``register_adapter_callback``."""
+        self.deregister_callback(callback)
 
     async def start(self) -> None:
         if self._listen_task is not None and not self._listen_task.done():
@@ -329,11 +357,20 @@ class TrinnovAltitudeClient:
     async def preset_get(self) -> None:
         await self._command("get_current_preset")
 
+    async def preset_label_get(self, preset_id: int) -> None:
+        await self._command(f"get_label {preset_id}")
+
+    async def presets_get_all(self) -> None:
+        await self._command("get_all_label")
+
     async def preset_set(self, preset_id: int) -> None:
         await self._command(f"loadp {preset_id}")
 
     async def source_get(self) -> None:
         await self._command("get_current_profile")
+
+    async def source_name_get(self, source_id: int) -> None:
+        await self._command(f"get_profile_name {source_id}")
 
     async def source_set(self, source_id: int) -> None:
         await self._command(f"profile {source_id}")
@@ -350,6 +387,9 @@ class TrinnovAltitudeClient:
 
     async def upmixer_set(self, mode: const.UpmixerMode) -> None:
         await self._command(f"upmixer {mode.value}")
+
+    async def state_get_current(self) -> None:
+        await self._command("get_current_state")
 
     async def volume_set(self, db: float) -> None:
         await self._command(f"volume {db}")
@@ -372,14 +412,14 @@ class TrinnovAltitudeClient:
         volume = ((percentage / 100) * (self.VOLUME_MAX - self.VOLUME_MIN)) + self.VOLUME_MIN
         await self.volume_set(round(volume, 1))
 
-    async def page_adjust(self, delta: int) -> None:
-        await self._command(f"page_adjust {delta}")
+    async def change_page(self, delta: int) -> None:
+        await self._command(f"change_page {delta}")
 
     async def page_down(self) -> None:
-        await self.page_adjust(-1)
+        await self.change_page(-1)
 
     async def page_up(self) -> None:
-        await self.page_adjust(1)
+        await self.change_page(1)
 
     async def bypass_set(self, state: bool) -> None:
         await self._command(f"bypass {int(state)}")
@@ -429,6 +469,18 @@ class TrinnovAltitudeClient:
     async def front_display_toggle(self) -> None:
         await self._command("fav_light 2")
 
+    async def optimization_set(self, state: bool) -> None:
+        await self._command(f"quick_optimized {int(state)}")
+
+    async def optimization_on(self) -> None:
+        await self.optimization_set(True)
+
+    async def optimization_off(self) -> None:
+        await self.optimization_set(False)
+
+    async def optimization_toggle(self) -> None:
+        await self._command("quick_optimized 2")
+
     async def acoustic_correction_set(self, state: bool) -> None:
         await self._command(f"use_acoustic_correct {int(state)}")
 
@@ -464,3 +516,6 @@ class TrinnovAltitudeClient:
 
     async def time_alignment_toggle(self) -> None:
         await self._command("use_time_alignment 2")
+
+    async def bye(self) -> None:
+        await self._command("bye")
