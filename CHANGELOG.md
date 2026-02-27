@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.1 - 2026-02-27
+
+### Fixed
+
+- Allow initial sync when devices emit current preset/source indices without full catalog clear messages (Altitude CI compatibility).
+- Add regression coverage for Altitude CI-style startup streams.
+
 ## 2.0.0 - 2026-02-27
 
 ### Breaking
