@@ -44,9 +44,7 @@ def test_parse_remapping_mode_case_insensitive():
 def test_normalize_args_for_special_commands():
     assert normalize_args("source_set_by_name", ["Apple", "TV"]) == ["Apple TV"]
     assert normalize_args("upmixer_set", ["native"]) == [UpmixerMode.MODE_NATIVE]
-    assert normalize_args("remapping_mode_set", ["manual"]) == [
-        RemappingMode.MODE_MANUAL
-    ]
+    assert normalize_args("remapping_mode_set", ["manual"]) == [RemappingMode.MODE_MANUAL]
 
 
 def test_command_sets_include_expected_items():

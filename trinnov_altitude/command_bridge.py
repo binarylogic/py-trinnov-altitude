@@ -107,9 +107,7 @@ def parse_remapping_mode(value: str) -> RemappingMode:
         if mode.value.lower() == value_lower:
             return mode
     valid_modes = ", ".join(mode.value for mode in RemappingMode)
-    raise ValueError(
-        f"Invalid remapping mode '{value}'. Valid modes are: {valid_modes}"
-    )
+    raise ValueError(f"Invalid remapping mode '{value}'. Valid modes are: {valid_modes}")
 
 
 def normalize_args(method_name: str, raw_args: Iterable[str]) -> list[Any]:
