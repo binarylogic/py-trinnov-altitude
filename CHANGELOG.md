@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.1.3](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.1.2...v3.1.3) (2026-02-28)
+
+
+### Bug Fixes
+
+* format canonical event definitions ([baef0ca](https://github.com/binarylogic/py-trinnov-altitude/commit/baef0ca694fbf923526281b3cd20501656d41a33))
+* normalize protocol semantics with altitude_ci quirk profile ([14de9cf](https://github.com/binarylogic/py-trinnov-altitude/commit/14de9cfc0058f4372a01cfbd87e03f871680ea7e))
+
+
+### Documentation
+
+* add AGENTS guidance for release and protocol workflow ([59e8e26](https://github.com/binarylogic/py-trinnov-altitude/commit/59e8e26ac2c501c31f192bbb4e898fbf2e8c56de))
+
 ## [3.1.2](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.1.1...v3.1.2) (2026-02-28)
 
 
