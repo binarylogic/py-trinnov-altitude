@@ -102,4 +102,3 @@ class SetVolumeEvent(CanonicalEvent):
 class SetWelcomeEvent(CanonicalEvent):
     version: str
     id: str
-
