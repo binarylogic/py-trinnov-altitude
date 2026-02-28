@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.1](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.1.0...v3.1.1) (2026-02-28)
+
+### Fixed
+
+- parse Altitude CI index-only source updates (`PROFILE -1`) as current source state
+- preserve negative current preset indices from protocol (`CURRENT_PRESET -1`)
+- bootstrap with `get_current_state` to populate catalogs deterministically on startup
+
 ## [3.1.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.0.0...v3.1.0) (2026-02-27)
 
 ### Features
