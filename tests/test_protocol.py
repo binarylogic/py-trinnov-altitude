@@ -28,10 +28,22 @@ def test_parse_current_profile_message():
     assert message.index == 4
 
 
+def test_parse_profile_without_label_maps_to_current_source():
+    message = parse_message("PROFILE -1")
+    assert isinstance(message, CurrentSourceMessage)
+    assert message.index == -1
+
+
 def test_parse_meta_preset_loaded_message_maps_to_current_preset():
     message = parse_message("META_PRESET_LOADED 2")
     assert isinstance(message, CurrentPresetMessage)
     assert message.index == 2
+
+
+def test_parse_current_preset_preserves_negative_index():
+    message = parse_message("CURRENT_PRESET -1")
+    assert isinstance(message, CurrentPresetMessage)
+    assert message.index == -1
 
 
 def test_parse_preset_label_message():

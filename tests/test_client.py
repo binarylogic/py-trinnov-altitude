@@ -103,6 +103,7 @@ async def test_start_and_stop_are_idempotent():
     await client.wait_synced(timeout=1)
 
     assert transport.connect_calls == 1
+    assert "get_current_state" in transport.sent
 
     await client.stop()
     await client.stop()
@@ -163,6 +164,42 @@ async def test_sync_allows_altitude_ci_style_startup_without_catalogs():
     assert client.state.current_source_index == 0
 
     await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_sync_parses_profile_index_only_as_current_source():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "CURRENT_PRESET 3",
+            "PROFILE -1",
+            "LABELS_CLEAR",
+            "LABEL 3: 9.1.6 Infra Config",
+            "PROFILES_CLEAR",
+            "PROFILE 0: AppleTV",
+            "PROFILE 1: Kscape",
+            "PROFILE 2: Xbox",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.preset == "9.1.6 Infra Config"), timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: len(client.state.sources) == 3), timeout=1)
+
+        assert client.state.current_source_index == -1
+        assert client.state.source is None
+        assert client.state.current_preset_index == 3
+        assert client.state.preset == "9.1.6 Infra Config"
+        assert client.state.sources == {0: "AppleTV", 1: "Kscape", 2: "Xbox"}
+    finally:
+        await client.stop()
 
 
 @pytest.mark.asyncio

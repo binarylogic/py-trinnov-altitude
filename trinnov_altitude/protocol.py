@@ -156,7 +156,7 @@ def _to_bypass(match: re.Match[str]) -> Message:
 
 
 def _to_current_preset(match: re.Match[str]) -> Message:
-    return CurrentPresetMessage(max(0, int(match.group(1))))
+    return CurrentPresetMessage(int(match.group(1)))
 
 
 def _to_current_source(match: re.Match[str]) -> Message:
@@ -254,6 +254,7 @@ PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^LABELS_CLEAR$"), _to_presets_clear),
     (re.compile(r"^MUTE\s(0|1)$"), _to_mute),
     (re.compile(r"^OK$"), _to_ok),
+    (re.compile(r"^PROFILE\s(-?\d+)$"), _to_current_source),
     (re.compile(r"^PROFILE\s(-?\d+): (.*)$"), _to_source),
     (re.compile(r"^PROFILES_CLEAR$"), _to_sources_clear),
     (
