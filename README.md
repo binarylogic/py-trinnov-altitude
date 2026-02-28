@@ -58,15 +58,19 @@ asyncio.run(main())
 
 ## Protocol Semantics
 
-The client treats index/token messages as canonical state and treats labels as optional metadata.
+The client parses raw messages first, then normalizes them into canonical state events.
+This keeps protocol quirks isolated and keeps the state reducer deterministic.
 
 - Canonical identity:
-  - `CURRENT_PRESET <n>` / `META_PRESET_LOADED <n>`
+  - `CURRENT_PRESET <n>`
   - `CURRENT_PROFILE <n>` or index-only `PROFILE <n>`
   - `DECODER ... UPMIXER <mode>`
 - Optional catalogs:
   - Presets via `LABELS_CLEAR` + `LABEL <n>: <name>`
   - Sources via `PROFILES_CLEAR` + `PROFILE <n>: <name>`
+- Quirk profiles:
+  - `altitude_ci` is selected when `IDENTS` includes `altitude_ci`
+  - In that profile, `META_PRESET_LOADED <n>` is normalized as a source-change signal
 
 Catalog messages may arrive late, be refreshed, or be absent. Consumers should not assume labels are always present.
 

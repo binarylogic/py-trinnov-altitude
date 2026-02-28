@@ -4,26 +4,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from trinnov_altitude.protocol import (
-    AudiosyncMessage,
-    AudiosyncStatusMessage,
-    BypassMessage,
-    CurrentPresetMessage,
-    CurrentSourceFormatMessage,
-    CurrentSourceMessage,
-    DecoderMessage,
-    DimMessage,
-    Message,
-    MuteMessage,
-    PresetMessage,
-    PresetsClearMessage,
-    SamplingRateMessage,
-    SourceMessage,
-    SourcesChangedMessage,
-    SourcesClearMessage,
-    VolumeMessage,
-    WelcomeMessage,
+from trinnov_altitude.canonical import (
+    CanonicalEvent,
+    ClearPresetsEvent,
+    ClearSourcesEvent,
+    SetAudiosyncEvent,
+    SetAudiosyncStatusEvent,
+    SetBypassEvent,
+    SetCurrentPresetEvent,
+    SetCurrentSourceEvent,
+    SetDecoderEvent,
+    SetDimEvent,
+    SetFeaturesEvent,
+    SetMuteEvent,
+    SetSamplingRateEvent,
+    SetSourceFormatEvent,
+    SetVolumeEvent,
+    SetWelcomeEvent,
+    SourcesChangedEvent,
+    UpsertPresetEvent,
+    UpsertSourceEvent,
 )
+from trinnov_altitude.normalizer import normalize_message, select_profile
+from trinnov_altitude.protocol import Message
 
 
 @dataclass
@@ -47,6 +50,7 @@ class AltitudeState:
 
     current_preset_index: int | None = None
     current_source_index: int | None = None
+    features: set[str] = field(default_factory=set)
 
     _seen_welcome: bool = False
     _seen_preset_catalog: bool = False
@@ -74,6 +78,7 @@ class AltitudeState:
 
         self.current_preset_index = None
         self.current_source_index = None
+        self.features = set()
 
         self._seen_welcome = False
         self._seen_preset_catalog = False
@@ -81,60 +86,68 @@ class AltitudeState:
         self._seen_current_preset = False
         self._seen_current_source = False
 
-    def apply(self, message: Message) -> None:  # noqa: C901
-        if isinstance(message, AudiosyncMessage):
-            self.audiosync = message.mode
-        elif isinstance(message, AudiosyncStatusMessage):
-            self.audiosync_status = message.synchronized
-        elif isinstance(message, BypassMessage):
-            self.bypass = message.state
-        elif isinstance(message, CurrentPresetMessage):
-            self.current_preset_index = message.index
-            self.preset = self.presets.get(message.index)
+    def apply(self, message: Message) -> None:
+        """Normalize one raw message and reduce it into state."""
+        profile = select_profile(self.features)
+        for event in normalize_message(message, profile):
+            self._apply_event(event)
+
+    def _apply_event(self, event: CanonicalEvent) -> None:  # noqa: C901
+        if isinstance(event, SetAudiosyncEvent):
+            self.audiosync = event.mode
+        elif isinstance(event, SetAudiosyncStatusEvent):
+            self.audiosync_status = event.synchronized
+        elif isinstance(event, SetBypassEvent):
+            self.bypass = event.state
+        elif isinstance(event, SetCurrentPresetEvent):
+            self.current_preset_index = event.index
+            self.preset = self.presets.get(event.index)
             self._seen_current_preset = True
-        elif isinstance(message, CurrentSourceFormatMessage):
-            self.source_format = message.format
-        elif isinstance(message, CurrentSourceMessage):
-            self.current_source_index = message.index
-            self.source = self.sources.get(message.index)
+        elif isinstance(event, SetSourceFormatEvent):
+            self.source_format = event.format
+        elif isinstance(event, SetCurrentSourceEvent):
+            self.current_source_index = event.index
+            self.source = self.sources.get(event.index)
             self._seen_current_source = True
-        elif isinstance(message, DecoderMessage):
-            self.decoder = message.decoder
-            self.upmixer = message.upmixer
-        elif isinstance(message, DimMessage):
-            self.dim = message.state
-        elif isinstance(message, PresetMessage):
-            self.presets[message.index] = message.name
+        elif isinstance(event, SetFeaturesEvent):
+            self.features = set(event.features)
+        elif isinstance(event, SetDecoderEvent):
+            self.decoder = event.decoder
+            self.upmixer = event.upmixer
+        elif isinstance(event, SetDimEvent):
+            self.dim = event.state
+        elif isinstance(event, UpsertPresetEvent):
+            self.presets[event.index] = event.name
             self._seen_preset_catalog = True
-            if self.current_preset_index == message.index:
-                self.preset = message.name
-        elif isinstance(message, PresetsClearMessage):
+            if self.current_preset_index == event.index:
+                self.preset = event.name
+        elif isinstance(event, ClearPresetsEvent):
             self.presets = {}
             self._seen_preset_catalog = True
             if self.current_preset_index is not None:
                 self.preset = None
-        elif isinstance(message, MuteMessage):
-            self.mute = message.state
-        elif isinstance(message, SourceMessage):
-            self.sources[message.index] = message.name
+        elif isinstance(event, SetMuteEvent):
+            self.mute = event.state
+        elif isinstance(event, UpsertSourceEvent):
+            self.sources[event.index] = event.name
             self._seen_source_catalog = True
-            if self.current_source_index == message.index:
-                self.source = message.name
-        elif isinstance(message, SourcesClearMessage):
+            if self.current_source_index == event.index:
+                self.source = event.name
+        elif isinstance(event, ClearSourcesEvent):
             self.sources = {}
             self._seen_source_catalog = True
             if self.current_source_index is not None:
                 self.source = None
-        elif isinstance(message, SourcesChangedMessage):
+        elif isinstance(event, SourcesChangedEvent):
             # Informational marker emitted by some firmware variants.
             pass
-        elif isinstance(message, SamplingRateMessage):
-            self.sampling_rate = message.rate
-        elif isinstance(message, VolumeMessage):
-            self.volume = message.volume
-        elif isinstance(message, WelcomeMessage):
-            self.version = message.version
-            self.id = message.id
+        elif isinstance(event, SetSamplingRateEvent):
+            self.sampling_rate = event.rate
+        elif isinstance(event, SetVolumeEvent):
+            self.volume = event.volume
+        elif isinstance(event, SetWelcomeEvent):
+            self.version = event.version
+            self.id = event.id
             self._seen_welcome = True
 
     @property

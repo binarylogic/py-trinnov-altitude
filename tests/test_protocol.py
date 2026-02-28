@@ -5,6 +5,8 @@ from trinnov_altitude.protocol import (
     CurrentSourceMessage,
     DecoderMessage,
     ErrorMessage,
+    IdentsMessage,
+    MetaPresetLoadedMessage,
     PresetMessage,
     SourceMessage,
     SourcesChangedMessage,
@@ -55,9 +57,9 @@ def test_parse_sources_changed_message():
     assert isinstance(message, SourcesChangedMessage)
 
 
-def test_parse_meta_preset_loaded_message_maps_to_current_preset():
+def test_parse_meta_preset_loaded_message():
     message = parse_message("META_PRESET_LOADED 2")
-    assert isinstance(message, CurrentPresetMessage)
+    assert isinstance(message, MetaPresetLoadedMessage)
     assert message.index == 2
 
 
@@ -97,6 +99,18 @@ def test_parse_audiosync_status_message():
     message = parse_message("AUDIOSYNC STATUS 1")
     assert isinstance(message, AudiosyncStatusMessage)
     assert message.synchronized is True
+
+
+def test_parse_audiosync_status_underscore_message():
+    message = parse_message("AUDIOSYNC_STATUS 0")
+    assert isinstance(message, AudiosyncStatusMessage)
+    assert message.synchronized is False
+
+
+def test_parse_idents_message():
+    message = parse_message("IDENTS with_tsf,altitude_ci,decoder_dolby")
+    assert isinstance(message, IdentsMessage)
+    assert message.features == ("with_tsf", "altitude_ci", "decoder_dolby")
 
 
 def test_parse_speaker_info_message():

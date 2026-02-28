@@ -143,8 +143,9 @@ async def test_sync_allows_altitude_ci_style_startup_without_catalogs():
     transport = FakeTransport(
         incoming_lines=[
             "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "IDENTS with_tsf,altitude_ci,decoder_dolby",
+            "CURRENT_PRESET 0",
             "META_PRESET_LOADED 0",
-            "CURRENT_PROFILE 0",
             "DECODER NONAUDIO 0 PLAYABLE 0 DECODER none UPMIXER none",
         ]
     )
@@ -164,6 +165,61 @@ async def test_sync_allows_altitude_ci_style_startup_without_catalogs():
     assert client.state.current_source_index == 0
 
     await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_meta_preset_loaded_maps_to_preset_for_non_ci_profile():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 4.3.2, ID 42)",
+            "META_PRESET_LOADED 2",
+            "CURRENT_PROFILE 0",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    assert client.state.current_preset_index == 2
+    assert client.state.current_source_index == 0
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_altitude_ci_meta_preset_loaded_updates_current_source():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "IDENTS with_tsf,altitude_ci,decoder_dolby",
+            "CURRENT_PRESET 3",
+            "CURRENT_PROFILE 0",
+            "PROFILES_CLEAR",
+            "PROFILE 0: AppleTV",
+            "PROFILE 3: Plex",
+            "META_PRESET_LOADED 3",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.source == "Plex"), timeout=1)
+        assert client.state.current_preset_index == 3
+        assert client.state.current_source_index == 3
+        assert client.state.source == "Plex"
+    finally:
+        await client.stop()
 
 
 @pytest.mark.asyncio

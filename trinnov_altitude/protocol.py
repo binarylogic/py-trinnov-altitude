@@ -52,6 +52,16 @@ class CurrentSourceMessage(Message):
 
 
 @dataclass(frozen=True)
+class IdentsMessage(Message):
+    features: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class MetaPresetLoadedMessage(Message):
+    index: int
+
+
+@dataclass(frozen=True)
 class DecoderMessage(Message):
     nonaudio: bool
     playable: bool
@@ -164,6 +174,10 @@ def _to_current_preset(match: re.Match[str]) -> Message:
     return CurrentPresetMessage(int(match.group(1)))
 
 
+def _to_meta_preset_loaded(match: re.Match[str]) -> Message:
+    return MetaPresetLoadedMessage(int(match.group(1)))
+
+
 def _to_current_source(match: re.Match[str]) -> Message:
     return CurrentSourceMessage(int(match.group(1)))
 
@@ -184,6 +198,11 @@ def _to_decoder(match: re.Match[str]) -> Message:
 
 def _to_dim(match: re.Match[str]) -> Message:
     return DimMessage(bool(int(match.group(1))))
+
+
+def _to_idents(match: re.Match[str]) -> Message:
+    features = tuple(token.strip() for token in match.group(1).split(",") if token.strip())
+    return IdentsMessage(features=features)
 
 
 def _to_error(match: re.Match[str]) -> Message:
@@ -253,15 +272,17 @@ def _to_optsource(match: re.Match[str]) -> Message:
 
 PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^AUDIOSYNC STATUS\s(0|1)$"), _to_audiosync_status),
+    (re.compile(r"^AUDIOSYNC_STATUS\s(0|1)$"), _to_audiosync_status),
     (re.compile(r"^AUDIOSYNC\s(.*)$"), _to_audiosync),
     (re.compile(r"^BYPASS\s(0|1)$"), _to_bypass),
     (re.compile(r"^BYE$"), _to_bye),
     (re.compile(r"^CURRENT_PRESET\s(-?\d+)$"), _to_current_preset),
-    (re.compile(r"^META_PRESET_LOADED\s(-?\d+)$"), _to_current_preset),
+    (re.compile(r"^META_PRESET_LOADED\s(-?\d+)$"), _to_meta_preset_loaded),
     (re.compile(r"^CURRENT_PROFILE\s(-?\d+)$"), _to_current_source),
     (re.compile(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)$"), _to_current_source_format),
     (re.compile(r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)$"), _to_decoder),
     (re.compile(r"^DIM\s(-?\d+)$"), _to_dim),
+    (re.compile(r"^IDENTS\s(.*)$"), _to_idents),
     (re.compile(r"^ERROR: (.*)$"), _to_error),
     (re.compile(r"^LABEL\s(-?\d+): (.*)$"), _to_preset),
     (re.compile(r"^LABELS_CLEAR$"), _to_presets_clear),
