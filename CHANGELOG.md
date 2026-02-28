@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.2](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.1.1...v3.1.2) (2026-02-28)
+
+
+### Bug Fixes
+
+* parse optsource variants with and without trailing OK ([db06676](https://github.com/binarylogic/py-trinnov-altitude/commit/db066769b77d7ed6749e3ee1e4b6068af9402872))
+
 ## [3.1.1](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.1.0...v3.1.1) (2026-02-28)
 
 ### Fixed
