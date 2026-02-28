@@ -56,6 +56,20 @@ asyncio.run(main())
 - `await client.wait_synced()` waits until welcome + catalogs + current indices are observed.
 - `await client.stop()` stops listener and disconnects cleanly.
 
+## Protocol Semantics
+
+The client treats index/token messages as canonical state and treats labels as optional metadata.
+
+- Canonical identity:
+  - `CURRENT_PRESET <n>` / `META_PRESET_LOADED <n>`
+  - `CURRENT_PROFILE <n>` or index-only `PROFILE <n>`
+  - `DECODER ... UPMIXER <mode>`
+- Optional catalogs:
+  - Presets via `LABELS_CLEAR` + `LABEL <n>: <name>`
+  - Sources via `PROFILES_CLEAR` + `PROFILE <n>: <name>`
+
+Catalog messages may arrive late, be refreshed, or be absent. Consumers should not assume labels are always present.
+
 ## Events
 
 ```python

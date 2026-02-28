@@ -233,6 +233,38 @@ async def test_current_indices_backfill_names_when_catalog_arrives_later():
 
 
 @pytest.mark.asyncio
+async def test_sync_uses_optsource_entries_as_source_catalog():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "CURRENT_PRESET 3",
+            "CURRENT_PROFILE 0",
+            "LABELS_CLEAR",
+            "LABEL 3: 9.1.6 Infra Config",
+            "PROFILES_CLEAR",
+            "SOURCES_CHANGED",
+            "OPTSOURCE 0 AppleTV OK",
+            "OPTSOURCE 1 Kscape OK",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.source == "AppleTV"), timeout=1)
+        assert client.state.current_source_index == 0
+        assert client.state.source == "AppleTV"
+        assert client.state.sources == {0: "AppleTV", 1: "Kscape"}
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
 async def test_callback_exception_is_isolated():
     transport = FakeTransport(incoming_lines=synced_lines())
     client = TrinnovAltitudeClient(

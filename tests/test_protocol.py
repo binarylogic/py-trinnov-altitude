@@ -6,6 +6,8 @@ from trinnov_altitude.protocol import (
     DecoderMessage,
     ErrorMessage,
     PresetMessage,
+    SourceMessage,
+    SourcesChangedMessage,
     SpeakerInfoMessage,
     StartRunningMessage,
     UnknownMessage,
@@ -32,6 +34,18 @@ def test_parse_profile_without_label_maps_to_current_source():
     message = parse_message("PROFILE -1")
     assert isinstance(message, CurrentSourceMessage)
     assert message.index == -1
+
+
+def test_parse_optsource_maps_to_source_message():
+    message = parse_message("OPTSOURCE 3 Plex OK")
+    assert isinstance(message, SourceMessage)
+    assert message.index == 3
+    assert message.name == "Plex"
+
+
+def test_parse_sources_changed_message():
+    message = parse_message("SOURCES_CHANGED")
+    assert isinstance(message, SourcesChangedMessage)
 
 
 def test_parse_meta_preset_loaded_message_maps_to_current_preset():

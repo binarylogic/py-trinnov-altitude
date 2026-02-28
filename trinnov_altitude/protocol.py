@@ -96,6 +96,11 @@ class PresetsClearMessage(Message):
 
 
 @dataclass(frozen=True)
+class SourcesChangedMessage(Message):
+    pass
+
+
+@dataclass(frozen=True)
 class SamplingRateMessage(Message):
     rate: int
 
@@ -213,6 +218,10 @@ def _to_sources_clear(match: re.Match[str]) -> Message:
     return SourcesClearMessage()
 
 
+def _to_sources_changed(match: re.Match[str]) -> Message:
+    return SourcesChangedMessage()
+
+
 def _to_speaker_info(match: re.Match[str]) -> Message:
     return SpeakerInfoMessage(
         speaker_number=int(match.group(1)),
@@ -238,6 +247,10 @@ def _to_welcome(match: re.Match[str]) -> Message:
     return WelcomeMessage(version=match.group(1), id=match.group(2))
 
 
+def _to_optsource(match: re.Match[str]) -> Message:
+    return SourceMessage(int(match.group(1)), match.group(2).strip())
+
+
 PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^AUDIOSYNC STATUS\s(0|1)$"), _to_audiosync_status),
     (re.compile(r"^AUDIOSYNC\s(.*)$"), _to_audiosync),
@@ -256,7 +269,11 @@ PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^OK$"), _to_ok),
     (re.compile(r"^PROFILE\s(-?\d+)$"), _to_current_source),
     (re.compile(r"^PROFILE\s(-?\d+): (.*)$"), _to_source),
+    # Seen on some Altitude CI builds; includes source id/name list entries.
+    (re.compile(r"^OPTSOURCE\s(-?\d+)\s(.*?)\s+OK$"), _to_optsource),
+    (re.compile(r"^OPTSOURCE\s(-?\d+)\s(.*)$"), _to_optsource),
     (re.compile(r"^PROFILES_CLEAR$"), _to_sources_clear),
+    (re.compile(r"^SOURCES_CHANGED$"), _to_sources_changed),
     (
         re.compile(r"^SPEAKER_INFO\s(\d+)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)$"),
         _to_speaker_info,

@@ -19,6 +19,7 @@ from trinnov_altitude.protocol import (
     PresetsClearMessage,
     SamplingRateMessage,
     SourceMessage,
+    SourcesChangedMessage,
     SourcesClearMessage,
     VolumeMessage,
     WelcomeMessage,
@@ -124,6 +125,9 @@ class AltitudeState:
             self._seen_source_catalog = True
             if self.current_source_index is not None:
                 self.source = None
+        elif isinstance(message, SourcesChangedMessage):
+            # Informational marker emitted by some firmware variants.
+            pass
         elif isinstance(message, SamplingRateMessage):
             self.sampling_rate = message.rate
         elif isinstance(message, VolumeMessage):
