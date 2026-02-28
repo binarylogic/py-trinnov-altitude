@@ -43,6 +43,13 @@ def test_parse_optsource_maps_to_source_message():
     assert message.name == "Plex"
 
 
+def test_parse_optsource_without_trailing_ok_maps_to_source_message():
+    message = parse_message("OPTSOURCE 7 HDMI eARC 1")
+    assert isinstance(message, SourceMessage)
+    assert message.index == 7
+    assert message.name == "HDMI eARC 1"
+
+
 def test_parse_sources_changed_message():
     message = parse_message("SOURCES_CHANGED")
     assert isinstance(message, SourcesChangedMessage)
