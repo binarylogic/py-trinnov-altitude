@@ -57,6 +57,7 @@ class AltitudeState:
     source: str | None = None
     source_format: str | None = None
     sources: dict[int, str] = field(default_factory=dict)
+    _source_label_quality: dict[int, int] = field(default_factory=dict)
     upmixer: str | None = None
     version: str | None = None
     volume: float | None = None
@@ -85,6 +86,7 @@ class AltitudeState:
         self.source = None
         self.source_format = None
         self.sources = {}
+        self._source_label_quality = {}
         self.upmixer = None
         self.version = None
         self.volume = None
@@ -143,13 +145,19 @@ class AltitudeState:
             self.mute = event.state
         elif isinstance(event, UpsertSourceEvent):
             existing = self.sources.get(event.index)
-            if _should_replace_source_name(existing, event.name):
+            existing_quality = self._source_label_quality.get(event.index, -1)
+            should_replace = event.quality > existing_quality
+            if event.quality == existing_quality:
+                should_replace = _should_replace_source_name(existing, event.name)
+            if should_replace:
                 self.sources[event.index] = event.name
+                self._source_label_quality[event.index] = event.quality
             self._seen_source_catalog = True
             if self.current_source_index == event.index:
                 self.source = self.sources.get(event.index)
         elif isinstance(event, ClearSourcesEvent):
             self.sources = {}
+            self._source_label_quality = {}
             self._seen_source_catalog = True
             if self.current_source_index is not None:
                 self.source = None

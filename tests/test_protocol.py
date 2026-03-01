@@ -49,6 +49,7 @@ def test_parse_optsource_maps_to_source_message():
     assert isinstance(message, SourceMessage)
     assert message.index == 3
     assert message.name == "Plex"
+    assert message.origin == "optsource"
 
 
 def test_parse_optsource_without_trailing_ok_maps_to_source_message():
@@ -56,6 +57,15 @@ def test_parse_optsource_without_trailing_ok_maps_to_source_message():
     assert isinstance(message, SourceMessage)
     assert message.index == 7
     assert message.name == "HDMI eARC 1"
+    assert message.origin == "optsource"
+
+
+def test_parse_profile_label_maps_to_profile_origin_source():
+    message = parse_message("PROFILE 0: AppleTV")
+    assert isinstance(message, SourceMessage)
+    assert message.index == 0
+    assert message.name == "AppleTV"
+    assert message.origin == "profile"
 
 
 def test_parse_sources_changed_message():

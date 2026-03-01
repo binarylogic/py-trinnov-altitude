@@ -629,6 +629,25 @@ async def test_register_adapter_callback_emits_initial_and_change_events():
     await client.stop()
 
 
+@pytest.mark.asyncio
+async def test_unknown_messages_are_counted_and_sampled():
+    transport = FakeTransport(incoming_lines=synced_lines() + ["UNRECOGNIZED_EVENT foo bar"])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await asyncio.sleep(0.01)
+
+    assert client.unknown_message_count == 1
+    assert client.recent_unknown_messages[-1] == "UNRECOGNIZED_EVENT foo bar"
+
+    await client.stop()
+
+
 async def _wait_for(predicate):
     if predicate():
         return

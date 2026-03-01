@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+SOURCE_LABEL_QUALITY_OPTSOURCE = 10
+SOURCE_LABEL_QUALITY_PROFILE = 20
+
 
 @dataclass(frozen=True)
 class CanonicalEvent:
@@ -76,6 +79,7 @@ class SetMuteEvent(CanonicalEvent):
 class UpsertSourceEvent(CanonicalEvent):
     index: int
     name: str
+    quality: int = SOURCE_LABEL_QUALITY_PROFILE
 
 
 @dataclass(frozen=True)

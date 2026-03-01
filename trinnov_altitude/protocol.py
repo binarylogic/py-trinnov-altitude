@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
 AUDIO_FORMAT_MAPPING = {
     "ATMOS TrueHD": "Dolby Atmos/Dolby TrueHD",
@@ -119,6 +120,7 @@ class SamplingRateMessage(Message):
 class SourceMessage(Message):
     index: int
     name: str
+    origin: Literal["profile", "optsource"] = "profile"
 
 
 @dataclass(frozen=True)
@@ -230,7 +232,7 @@ def _to_ok(match: re.Match[str]) -> Message:
 
 
 def _to_source(match: re.Match[str]) -> Message:
-    return SourceMessage(int(match.group(1)), match.group(2))
+    return SourceMessage(int(match.group(1)), match.group(2), origin="profile")
 
 
 def _to_sources_clear(match: re.Match[str]) -> Message:
@@ -267,7 +269,7 @@ def _to_welcome(match: re.Match[str]) -> Message:
 
 
 def _to_optsource(match: re.Match[str]) -> Message:
-    return SourceMessage(int(match.group(1)), match.group(2).strip())
+    return SourceMessage(int(match.group(1)), match.group(2).strip(), origin="optsource")
 
 
 PARSER_RULES: tuple[Rule, ...] = (

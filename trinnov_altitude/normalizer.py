@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from trinnov_altitude.canonical import (
+    SOURCE_LABEL_QUALITY_OPTSOURCE,
+    SOURCE_LABEL_QUALITY_PROFILE,
     CanonicalEvent,
     ClearPresetsEvent,
     ClearSourcesEvent,
@@ -88,7 +90,8 @@ def normalize_message(message: Message, profile: str) -> list[CanonicalEvent]:  
     if isinstance(message, MuteMessage):
         return [SetMuteEvent(state=message.state)]
     if isinstance(message, SourceMessage):
-        return [UpsertSourceEvent(index=message.index, name=message.name)]
+        quality = SOURCE_LABEL_QUALITY_OPTSOURCE if message.origin == "optsource" else SOURCE_LABEL_QUALITY_PROFILE
+        return [UpsertSourceEvent(index=message.index, name=message.name, quality=quality)]
     if isinstance(message, SourcesClearMessage):
         return [ClearSourcesEvent()]
     if isinstance(message, SourcesChangedMessage):

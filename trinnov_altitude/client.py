@@ -15,7 +15,7 @@ from wakeonlan import send_magic_packet
 
 from trinnov_altitude import const, exceptions
 from trinnov_altitude.adapter import AdapterEvent, AltitudeSnapshot, AltitudeStateAdapter, StateDelta
-from trinnov_altitude.protocol import ErrorMessage, Message, OKMessage, parse_message
+from trinnov_altitude.protocol import ErrorMessage, Message, OKMessage, UnknownMessage, parse_message
 from trinnov_altitude.state import AltitudeState
 from trinnov_altitude.transport import TcpTransport
 
@@ -100,6 +100,8 @@ class TrinnovAltitudeClient:
 
         self._command_lock = asyncio.Lock()
         self._ack_waiters: deque[asyncio.Future[Message]] = deque()
+        self._unknown_message_count = 0
+        self._unknown_message_samples: deque[str] = deque(maxlen=20)
 
     @property
     def connected(self) -> bool:
@@ -229,6 +231,8 @@ class TrinnovAltitudeClient:
                 try:
                     line = await self._read_line()
                     message = parse_message(line)
+                    if isinstance(message, UnknownMessage):
+                        self._record_unknown_message(message.raw_message)
 
                     self.state.apply(message)
 
@@ -249,6 +253,27 @@ class TrinnovAltitudeClient:
                         break
         except asyncio.CancelledError:
             pass
+
+    def _record_unknown_message(self, line: str) -> None:
+        self._unknown_message_count += 1
+        self._unknown_message_samples.append(line)
+        if self._unknown_message_count <= 5:
+            self.logger.warning("Unknown protocol message: %s", line)
+            return
+        if self._unknown_message_count % 100 == 0:
+            self.logger.warning(
+                "Unknown protocol messages seen=%s latest=%s",
+                self._unknown_message_count,
+                line,
+            )
+
+    @property
+    def unknown_message_count(self) -> int:
+        return self._unknown_message_count
+
+    @property
+    def recent_unknown_messages(self) -> tuple[str, ...]:
+        return tuple(self._unknown_message_samples)
 
     def _resolve_ack_waiter(self, message: Message) -> None:
         if not isinstance(message, (OKMessage, ErrorMessage)):
