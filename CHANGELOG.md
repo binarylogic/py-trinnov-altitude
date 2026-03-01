@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.2.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.1.3...v3.2.0) (2026-03-01)
+
+
+### Features
+
+* formalize protocol layering and observability ([d092fda](https://github.com/binarylogic/py-trinnov-altitude/commit/d092fdacd476d054e9d08f108e430c83bc28fe8a))
+
+
+### Bug Fixes
+
+* harden source index parsing and label quality precedence ([592c62f](https://github.com/binarylogic/py-trinnov-altitude/commit/592c62f57f254e79e06ea734617e6de6c4d81adb))
+
 ## [3.1.3](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.1.2...v3.1.3) (2026-02-28)
 
 
