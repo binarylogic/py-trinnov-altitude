@@ -279,6 +279,7 @@ PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^CURRENT_PRESET\s(-?\d+)$"), _to_current_preset),
     (re.compile(r"^META_PRESET_LOADED\s(-?\d+)$"), _to_meta_preset_loaded),
     (re.compile(r"^CURRENT_PROFILE\s(-?\d+)$"), _to_current_source),
+    (re.compile(r"^SOURCE\s(-?\d+)$"), _to_current_source),
     (re.compile(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)$"), _to_current_source_format),
     (re.compile(r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)$"), _to_decoder),
     (re.compile(r"^DIM\s(-?\d+)$"), _to_dim),

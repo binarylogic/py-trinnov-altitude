@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from trinnov_altitude.canonical import (
@@ -27,6 +28,18 @@ from trinnov_altitude.canonical import (
 )
 from trinnov_altitude.normalizer import normalize_message, select_profile
 from trinnov_altitude.protocol import Message
+
+GENERIC_SOURCE_NAME_PATTERN = re.compile(r"^source\s+\d+$", re.IGNORECASE)
+
+
+def _is_generic_source_name(value: str) -> bool:
+    return bool(GENERIC_SOURCE_NAME_PATTERN.match(value.strip()))
+
+
+def _should_replace_source_name(existing: str | None, incoming: str) -> bool:
+    if existing is None:
+        return True
+    return not (_is_generic_source_name(incoming) and not _is_generic_source_name(existing))
 
 
 @dataclass
@@ -129,10 +142,12 @@ class AltitudeState:
         elif isinstance(event, SetMuteEvent):
             self.mute = event.state
         elif isinstance(event, UpsertSourceEvent):
-            self.sources[event.index] = event.name
+            existing = self.sources.get(event.index)
+            if _should_replace_source_name(existing, event.name):
+                self.sources[event.index] = event.name
             self._seen_source_catalog = True
             if self.current_source_index == event.index:
-                self.source = event.name
+                self.source = self.sources.get(event.index)
         elif isinstance(event, ClearSourcesEvent):
             self.sources = {}
             self._seen_source_catalog = True

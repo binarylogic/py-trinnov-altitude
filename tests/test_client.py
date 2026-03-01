@@ -321,6 +321,61 @@ async def test_sync_uses_optsource_entries_as_source_catalog():
 
 
 @pytest.mark.asyncio
+async def test_sync_accepts_source_message_as_current_source_index():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "CURRENT_PRESET 1",
+            "PROFILES_CLEAR",
+            "PROFILE 0: AppleTV",
+            "SOURCE 0",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.source == "AppleTV"), timeout=1)
+        assert client.state.current_source_index == 0
+        assert client.state.source == "AppleTV"
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_sync_preserves_non_generic_source_name_when_optsource_is_generic():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "CURRENT_PRESET 1",
+            "CURRENT_PROFILE 0",
+            "PROFILES_CLEAR",
+            "PROFILE 0: AppleTV",
+            "OPTSOURCE 0 Source 1",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.source == "AppleTV"), timeout=1)
+        assert client.state.sources[0] == "AppleTV"
+        assert client.state.source == "AppleTV"
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
 async def test_callback_exception_is_isolated():
     transport = FakeTransport(incoming_lines=synced_lines())
     client = TrinnovAltitudeClient(

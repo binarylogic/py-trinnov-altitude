@@ -32,6 +32,12 @@ def test_parse_current_profile_message():
     assert message.index == 4
 
 
+def test_parse_source_index_message():
+    message = parse_message("SOURCE 2")
+    assert isinstance(message, CurrentSourceMessage)
+    assert message.index == 2
+
+
 def test_parse_profile_without_label_maps_to_current_source():
     message = parse_message("PROFILE -1")
     assert isinstance(message, CurrentSourceMessage)
