@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.0...v3.2.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* harden altitude ci startup source bootstrap ([e2b8f71](https://github.com/binarylogic/py-trinnov-altitude/commit/e2b8f71ca84537f8cf3f6edd1d7863b74c1fd680))
+
 ## [3.2.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.1.3...v3.2.0) (2026-03-01)
 
 
