@@ -6,6 +6,7 @@ from trinnov_altitude.protocol import (
     DecoderMessage,
     ErrorMessage,
     IdentsMessage,
+    IgnoredMessage,
     MetaPresetLoadedMessage,
     PresetMessage,
     SourceMessage,
@@ -109,6 +110,20 @@ def test_parse_error_message():
     message = parse_message("ERROR: invalid command")
     assert isinstance(message, ErrorMessage)
     assert message.error == "invalid command"
+
+
+def test_parse_known_startup_noise_as_ignored_messages():
+    lines = [
+        "CURRENT_SOURCE_CHANNELS_ORDER_IS_DCI 0",
+        "CURRENT_SOURCE_CHANNELS_ORDER L-R-C-Ls-Rs-Lrs-Rrs-Lw-Rw-Ltf-Rtf-Ltm-Rtm-Ltr-Rtr-LFE",
+        "CALIBRATION_DONE",
+        "REMAPPING_MODE none",
+        "MON_VOL -50.0",
+    ]
+    for line in lines:
+        message = parse_message(line)
+        assert isinstance(message, IgnoredMessage)
+        assert message.raw_message == line
 
 
 def test_parse_audiosync_status_message():

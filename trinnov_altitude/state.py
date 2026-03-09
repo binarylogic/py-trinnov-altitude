@@ -121,8 +121,12 @@ class AltitudeState:
         elif isinstance(event, SetSourceFormatEvent):
             self.source_format = event.format
         elif isinstance(event, SetCurrentSourceEvent):
-            self.current_source_index = event.index
-            self.source = self.sources.get(event.index)
+            if event.index >= 0:
+                self.current_source_index = event.index
+                self.source = self.sources.get(event.index)
+            elif self.current_source_index is None or self.current_source_index < 0:
+                self.current_source_index = None
+                self.source = None
             self._seen_current_source = True
         elif isinstance(event, SetFeaturesEvent):
             self.features = set(event.features)

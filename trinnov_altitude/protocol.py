@@ -81,6 +81,11 @@ class ErrorMessage(Message):
 
 
 @dataclass(frozen=True)
+class IgnoredMessage(Message):
+    raw_message: str
+
+
+@dataclass(frozen=True)
 class ByeMessage(Message):
     pass
 
@@ -211,6 +216,10 @@ def _to_error(match: re.Match[str]) -> Message:
     return ErrorMessage(match.group(1))
 
 
+def _to_ignored(match: re.Match[str]) -> Message:
+    return IgnoredMessage(match.group(0))
+
+
 def _to_bye(match: re.Match[str]) -> Message:
     return ByeMessage()
 
@@ -283,13 +292,17 @@ PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^CURRENT_PROFILE\s(-?\d+)$"), _to_current_source),
     (re.compile(r"^SOURCE\s(-?\d+)$"), _to_current_source),
     (re.compile(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)$"), _to_current_source_format),
+    (re.compile(r"^CURRENT_SOURCE_CHANNELS_ORDER_IS_DCI\s(0|1)$"), _to_ignored),
+    (re.compile(r"^CURRENT_SOURCE_CHANNELS_ORDER\s(.*)$"), _to_ignored),
     (re.compile(r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)$"), _to_decoder),
     (re.compile(r"^DIM\s(-?\d+)$"), _to_dim),
     (re.compile(r"^IDENTS\s(.*)$"), _to_idents),
     (re.compile(r"^ERROR: (.*)$"), _to_error),
+    (re.compile(r"^CALIBRATION_DONE$"), _to_ignored),
     (re.compile(r"^LABEL\s(-?\d+): (.*)$"), _to_preset),
     (re.compile(r"^LABELS_CLEAR$"), _to_presets_clear),
     (re.compile(r"^MUTE\s(0|1)$"), _to_mute),
+    (re.compile(r"^MON_VOL\s(-?\d+(?:\.\d+)?)$"), _to_ignored),
     (re.compile(r"^OK$"), _to_ok),
     (re.compile(r"^PROFILE\s(-?\d+)$"), _to_current_source),
     (re.compile(r"^PROFILE\s(-?\d+): (.*)$"), _to_source),
@@ -297,6 +310,7 @@ PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^OPTSOURCE\s(-?\d+)\s(.*?)\s+OK$"), _to_optsource),
     (re.compile(r"^OPTSOURCE\s(-?\d+)\s(.*)$"), _to_optsource),
     (re.compile(r"^PROFILES_CLEAR$"), _to_sources_clear),
+    (re.compile(r"^REMAPPING_MODE\s(.*)$"), _to_ignored),
     (re.compile(r"^SOURCES_CHANGED$"), _to_sources_changed),
     (
         re.compile(r"^SPEAKER_INFO\s(\d+)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)$"),

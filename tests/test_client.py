@@ -223,11 +223,14 @@ async def test_altitude_ci_meta_preset_loaded_updates_current_source():
 
 
 @pytest.mark.asyncio
-async def test_sync_parses_profile_index_only_as_current_source():
+async def test_sync_keeps_valid_current_source_when_bootstrap_emits_profile_minus_one():
     transport = FakeTransport(
         incoming_lines=[
             "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "IDENTS with_tsf,altitude_ci,decoder_dolby",
             "CURRENT_PRESET 3",
+            "SOURCE 0",
+            "META_PRESET_LOADED 0",
             "PROFILE -1",
             "LABELS_CLEAR",
             "LABEL 3: 9.1.6 Infra Config",
@@ -247,10 +250,10 @@ async def test_sync_parses_profile_index_only_as_current_source():
     try:
         await client.wait_synced(timeout=1)
         await asyncio.wait_for(_wait_for(lambda: client.state.preset == "9.1.6 Infra Config"), timeout=1)
-        await asyncio.wait_for(_wait_for(lambda: len(client.state.sources) == 3), timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.source == "AppleTV"), timeout=1)
 
-        assert client.state.current_source_index == -1
-        assert client.state.source is None
+        assert client.state.current_source_index == 0
+        assert client.state.source == "AppleTV"
         assert client.state.current_preset_index == 3
         assert client.state.preset == "9.1.6 Infra Config"
         assert client.state.sources == {0: "AppleTV", 1: "Kscape", 2: "Xbox"}

@@ -202,7 +202,6 @@ class TrinnovAltitudeClient:
         self._emit("connected", None)
 
         await self._command(f"id {self.client_id}")
-        await self._command("send volume")
         await self._command("get_current_state")
 
     async def _disconnect_statefully(self) -> None:

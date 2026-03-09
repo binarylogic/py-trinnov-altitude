@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 
 from trinnov_altitude.client import TrinnovAltitudeClient
-from trinnov_altitude.protocol import OKMessage
 
 
 @pytest.mark.integration_real
@@ -21,6 +20,3 @@ async def test_real_device_read_only_queries(real_client: TrinnovAltitudeClient)
     # Read-only commands only. No preset/source/volume/power mutating commands are allowed here.
     await real_client.preset_get()
     await real_client.source_get()
-    ack = await real_client.command("send volume", wait_for_ack=True, ack_timeout=2.0)
-
-    assert isinstance(ack, OKMessage)
