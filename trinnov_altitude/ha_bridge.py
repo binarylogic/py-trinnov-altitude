@@ -45,6 +45,7 @@ def coordinator_payload(snapshot: AltitudeSnapshot) -> dict[str, Any]:
         "audiosync_mode": snapshot.audiosync,
         "audiosync_status": snapshot.audiosync_status,
         "decoder": snapshot.decoder,
+        "active_upmixer": snapshot.active_upmixer,
         "upmixer": snapshot.upmixer,
         "source_format": snapshot.source_format,
         "current_preset_index": snapshot.current_preset_index,

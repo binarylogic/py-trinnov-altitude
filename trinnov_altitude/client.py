@@ -203,6 +203,7 @@ class TrinnovAltitudeClient:
 
         await self._command(f"id {self.client_id}")
         await self._command("get_current_state")
+        await self._command("upmixer")
 
     async def _disconnect_statefully(self) -> None:
         transport = self._transport
@@ -407,6 +408,9 @@ class TrinnovAltitudeClient:
 
     async def remapping_mode_set(self, mode: const.RemappingMode) -> None:
         await self._command(f"remapping_mode {mode.value}")
+
+    async def upmixer_get(self) -> None:
+        await self._command("upmixer")
 
     async def upmixer_set(self, mode: const.UpmixerMode) -> None:
         await self._command(f"upmixer {mode.value}")

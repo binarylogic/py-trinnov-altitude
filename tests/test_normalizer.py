@@ -3,11 +3,13 @@ from trinnov_altitude.canonical import (
     SOURCE_LABEL_QUALITY_PROFILE,
     SetCurrentPresetEvent,
     SetCurrentSourceEvent,
+    SetDecoderEvent,
     SetFeaturesEvent,
+    SetUpmixerModeEvent,
     UpsertSourceEvent,
 )
 from trinnov_altitude.normalizer import PROFILE_ALTITUDE_CI, PROFILE_DEFAULT, normalize_message, select_profile
-from trinnov_altitude.protocol import IdentsMessage, MetaPresetLoadedMessage, SourceMessage
+from trinnov_altitude.protocol import DecoderMessage, IdentsMessage, MetaPresetLoadedMessage, SourceMessage, UpmixerModeMessage
 
 
 def test_select_profile_uses_altitude_ci_feature():
@@ -28,6 +30,19 @@ def test_meta_preset_loaded_normalizes_to_source_for_altitude_ci_profile():
 def test_idents_normalization_emits_feature_event():
     events = normalize_message(IdentsMessage(features=("with_tsf", "altitude_ci")), PROFILE_DEFAULT)
     assert events == [SetFeaturesEvent(features=("with_tsf", "altitude_ci"))]
+
+
+def test_decoder_normalization_emits_active_upmixer():
+    events = normalize_message(
+        DecoderMessage(nonaudio=False, playable=True, decoder="Dolby Atmos", upmixer="none"),
+        PROFILE_DEFAULT,
+    )
+    assert events == [SetDecoderEvent(decoder="Dolby Atmos", active_upmixer="none")]
+
+
+def test_upmixer_message_normalization_emits_configured_mode():
+    events = normalize_message(UpmixerModeMessage(mode="auto"), PROFILE_DEFAULT)
+    assert events == [SetUpmixerModeEvent(mode="auto")]
 
 
 def test_source_from_profile_uses_high_quality():

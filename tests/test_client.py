@@ -78,6 +78,7 @@ def synced_lines(version="4.3.2", device_id="1", preset="Builtin", source="Apple
         f"PROFILE 0: {source}",
         "CURRENT_PRESET 0",
         "CURRENT_PROFILE 0",
+        "UPMIXER auto",
     ]
 
 
@@ -104,6 +105,7 @@ async def test_start_and_stop_are_idempotent():
 
     assert transport.connect_calls == 1
     assert "get_current_state" in transport.sent
+    assert "upmixer" in transport.sent
 
     await client.stop()
     await client.stop()
@@ -147,6 +149,7 @@ async def test_sync_allows_altitude_ci_style_startup_without_catalogs():
             "CURRENT_PRESET 0",
             "META_PRESET_LOADED 0",
             "DECODER NONAUDIO 0 PLAYABLE 0 DECODER none UPMIXER none",
+            "UPMIXER auto",
         ]
     )
     client = TrinnovAltitudeClient(
@@ -157,12 +160,47 @@ async def test_sync_allows_altitude_ci_style_startup_without_catalogs():
 
     await client.start()
     await client.wait_synced(timeout=1)
+    await asyncio.wait_for(_wait_for(lambda: client.state.upmixer == "auto"), timeout=1)
+    await asyncio.wait_for(
+        _wait_for(lambda: client.state.active_upmixer == "none"),
+        timeout=1,
+    )
 
     assert client.state.synced is True
     assert client.state.version == "5.3.0pre3+#+"
     assert client.state.id == "19923109"
     assert client.state.current_preset_index == 0
     assert client.state.current_source_index == 0
+    assert client.state.active_upmixer == "none"
+    assert client.state.upmixer == "auto"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_upmixer_getter_keeps_configured_and_active_values_distinct():
+    transport = FakeTransport(
+        incoming_lines=[
+            *synced_lines(),
+            "DECODER NONAUDIO 0 PLAYABLE 1 DECODER ATMOS TrueHD UPMIXER none",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await asyncio.wait_for(_wait_for(lambda: client.state.upmixer == "auto"), timeout=1)
+    await asyncio.wait_for(
+        _wait_for(lambda: client.state.active_upmixer == "none"),
+        timeout=1,
+    )
+
+    assert client.state.upmixer == "auto"
+    assert client.state.active_upmixer == "none"
 
     await client.stop()
 

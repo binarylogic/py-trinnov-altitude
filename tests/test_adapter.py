@@ -2,9 +2,11 @@ from trinnov_altitude.adapter import AltitudeStateAdapter, snapshot_from_state
 from trinnov_altitude.protocol import (
     CurrentPresetMessage,
     CurrentSourceMessage,
+    DecoderMessage,
     MuteMessage,
     PresetMessage,
     SourceMessage,
+    UpmixerModeMessage,
     WelcomeMessage,
 )
 from trinnov_altitude.state import AltitudeState
@@ -45,3 +47,24 @@ def test_adapter_emits_deltas_and_events():
 
     assert "mute" in changed_fields
     assert "mute_changed" in event_kinds
+
+
+def test_adapter_tracks_configured_and_active_upmixer_separately():
+    state = _state_for_adapter()
+    adapter = AltitudeStateAdapter()
+
+    adapter.update(state)
+
+    state.apply(DecoderMessage(nonaudio=False, playable=True, decoder="Dolby Atmos", upmixer="none"))
+    state.apply(UpmixerModeMessage(mode="auto"))
+    snapshot, deltas, events = adapter.update(state)
+
+    changed_fields = {delta.field for delta in deltas}
+    event_kinds = {event.kind for event in events}
+
+    assert snapshot.active_upmixer == "none"
+    assert snapshot.upmixer == "auto"
+    assert "active_upmixer" in changed_fields
+    assert "upmixer" in changed_fields
+    assert "active_upmixer_changed" in event_kinds
+    assert "upmixer_changed" in event_kinds

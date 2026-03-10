@@ -46,7 +46,12 @@ class SetSourceFormatEvent(CanonicalEvent):
 @dataclass(frozen=True)
 class SetDecoderEvent(CanonicalEvent):
     decoder: str
-    upmixer: str
+    active_upmixer: str
+
+
+@dataclass(frozen=True)
+class SetUpmixerModeEvent(CanonicalEvent):
+    mode: str
 
 
 @dataclass(frozen=True)

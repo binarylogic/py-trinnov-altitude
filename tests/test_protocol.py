@@ -14,6 +14,7 @@ from trinnov_altitude.protocol import (
     SpeakerInfoMessage,
     StartRunningMessage,
     UnknownMessage,
+    UpmixerModeMessage,
     VolumeMessage,
     WelcomeMessage,
     parse_message,
@@ -98,6 +99,12 @@ def test_parse_decoder_message_applies_audio_mapping():
     assert isinstance(message, DecoderMessage)
     assert message.decoder == "Dolby Atmos/Dolby TrueHD"
     assert message.upmixer == "dolby"
+
+
+def test_parse_upmixer_mode_message():
+    message = parse_message("UPMIXER auto")
+    assert isinstance(message, UpmixerModeMessage)
+    assert message.mode == "auto"
 
 
 def test_parse_volume_message():

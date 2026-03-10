@@ -1,6 +1,14 @@
 from trinnov_altitude.adapter import AdapterEvent, AltitudeStateAdapter, StateDelta, snapshot_from_state
 from trinnov_altitude.ha_bridge import HABridgeDispatcher, build_bridge_update, coordinator_payload, to_ha_events
-from trinnov_altitude.protocol import CurrentPresetMessage, CurrentSourceMessage, PresetMessage, SourceMessage, WelcomeMessage
+from trinnov_altitude.protocol import (
+    CurrentPresetMessage,
+    CurrentSourceMessage,
+    DecoderMessage,
+    PresetMessage,
+    SourceMessage,
+    UpmixerModeMessage,
+    WelcomeMessage,
+)
 from trinnov_altitude.state import AltitudeState
 
 
@@ -15,13 +23,18 @@ def _state_for_bridge() -> AltitudeState:
 
 
 def test_coordinator_payload_contains_normalized_fields():
-    snapshot = snapshot_from_state(_state_for_bridge())
+    state = _state_for_bridge()
+    state.apply(DecoderMessage(nonaudio=False, playable=True, decoder="Dolby Atmos", upmixer="none"))
+    state.apply(UpmixerModeMessage(mode="auto"))
+    snapshot = snapshot_from_state(state)
     payload = coordinator_payload(snapshot)
     assert payload["available"] is True
     assert payload["version"] == "4.3.2"
     assert payload["device_id"] == "42"
     assert payload["preset"] == "Builtin"
     assert payload["source"] == "Apple TV"
+    assert payload["active_upmixer"] == "none"
+    assert payload["upmixer"] == "auto"
 
 
 def test_to_ha_events_maps_event_namespaces():

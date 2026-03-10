@@ -24,6 +24,7 @@ class AltitudeSnapshot:
     audiosync: str | None
     audiosync_status: bool | None
     decoder: str | None
+    active_upmixer: str | None
     upmixer: str | None
     source_format: str | None
     current_preset_index: int | None
@@ -65,6 +66,7 @@ def snapshot_from_state(state: AltitudeState) -> AltitudeSnapshot:
         audiosync=state.audiosync,
         audiosync_status=state.audiosync_status,
         decoder=state.decoder,
+        active_upmixer=state.active_upmixer,
         upmixer=state.upmixer,
         source_format=state.source_format,
         current_preset_index=state.current_preset_index,
@@ -126,6 +128,12 @@ def _build_events(previous: AltitudeSnapshot, current: AltitudeSnapshot) -> list
         _change_event("source_changed", previous.source, current.source, "source"),
         _change_event("sampling_rate_changed", previous.sampling_rate, current.sampling_rate, "hz"),
         _change_event("decoder_changed", previous.decoder, current.decoder, "decoder"),
+        _change_event(
+            "active_upmixer_changed",
+            previous.active_upmixer,
+            current.active_upmixer,
+            "active_upmixer",
+        ),
         _change_event("upmixer_changed", previous.upmixer, current.upmixer, "upmixer"),
     ):
         if event is not None:

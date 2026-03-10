@@ -20,6 +20,7 @@ from trinnov_altitude.canonical import (
     SetMuteEvent,
     SetSamplingRateEvent,
     SetSourceFormatEvent,
+    SetUpmixerModeEvent,
     SetVolumeEvent,
     SetWelcomeEvent,
     SourcesChangedEvent,
@@ -58,6 +59,7 @@ class AltitudeState:
     source_format: str | None = None
     sources: dict[int, str] = field(default_factory=dict)
     _source_label_quality: dict[int, int] = field(default_factory=dict)
+    active_upmixer: str | None = None
     upmixer: str | None = None
     version: str | None = None
     volume: float | None = None
@@ -87,6 +89,7 @@ class AltitudeState:
         self.source_format = None
         self.sources = {}
         self._source_label_quality = {}
+        self.active_upmixer = None
         self.upmixer = None
         self.version = None
         self.volume = None
@@ -132,9 +135,11 @@ class AltitudeState:
             self.features = set(event.features)
         elif isinstance(event, SetDecoderEvent):
             self.decoder = event.decoder
-            self.upmixer = event.upmixer
+            self.active_upmixer = event.active_upmixer
         elif isinstance(event, SetDimEvent):
             self.dim = event.state
+        elif isinstance(event, SetUpmixerModeEvent):
+            self.upmixer = event.mode
         elif isinstance(event, UpsertPresetEvent):
             self.presets[event.index] = event.name
             self._seen_preset_catalog = True

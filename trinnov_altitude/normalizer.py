@@ -21,6 +21,7 @@ from trinnov_altitude.canonical import (
     SetMuteEvent,
     SetSamplingRateEvent,
     SetSourceFormatEvent,
+    SetUpmixerModeEvent,
     SetVolumeEvent,
     SetWelcomeEvent,
     SourcesChangedEvent,
@@ -46,6 +47,7 @@ from trinnov_altitude.protocol import (
     SourceMessage,
     SourcesChangedMessage,
     SourcesClearMessage,
+    UpmixerModeMessage,
     VolumeMessage,
     WelcomeMessage,
 )
@@ -74,9 +76,11 @@ def normalize_message(message: Message, profile: str) -> list[CanonicalEvent]:  
     if isinstance(message, CurrentSourceMessage):
         return [SetCurrentSourceEvent(index=message.index)]
     if isinstance(message, DecoderMessage):
-        return [SetDecoderEvent(decoder=message.decoder, upmixer=message.upmixer)]
+        return [SetDecoderEvent(decoder=message.decoder, active_upmixer=message.upmixer)]
     if isinstance(message, DimMessage):
         return [SetDimEvent(state=message.state)]
+    if isinstance(message, UpmixerModeMessage):
+        return [SetUpmixerModeEvent(mode=message.mode)]
     if isinstance(message, IdentsMessage):
         return [SetFeaturesEvent(features=message.features)]
     if isinstance(message, MetaPresetLoadedMessage):

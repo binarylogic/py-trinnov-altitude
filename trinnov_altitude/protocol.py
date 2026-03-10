@@ -76,6 +76,11 @@ class DimMessage(Message):
 
 
 @dataclass(frozen=True)
+class UpmixerModeMessage(Message):
+    mode: str
+
+
+@dataclass(frozen=True)
 class ErrorMessage(Message):
     error: str
 
@@ -207,6 +212,10 @@ def _to_dim(match: re.Match[str]) -> Message:
     return DimMessage(bool(int(match.group(1))))
 
 
+def _to_upmixer_mode(match: re.Match[str]) -> Message:
+    return UpmixerModeMessage(mode=match.group(1).strip())
+
+
 def _to_idents(match: re.Match[str]) -> Message:
     features = tuple(token.strip() for token in match.group(1).split(",") if token.strip())
     return IdentsMessage(features=features)
@@ -296,6 +305,7 @@ PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^CURRENT_SOURCE_CHANNELS_ORDER\s(.*)$"), _to_ignored),
     (re.compile(r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)$"), _to_decoder),
     (re.compile(r"^DIM\s(-?\d+)$"), _to_dim),
+    (re.compile(r"^UPMIXER\s(.*)$"), _to_upmixer_mode),
     (re.compile(r"^IDENTS\s(.*)$"), _to_idents),
     (re.compile(r"^ERROR: (.*)$"), _to_error),
     (re.compile(r"^CALIBRATION_DONE$"), _to_ignored),
