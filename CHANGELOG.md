@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.3](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.2...v3.2.3) (2026-03-10)
+
+
+### Bug Fixes
+
+* ignore ci startup noise and harden disconnect shutdown ([#19](https://github.com/binarylogic/py-trinnov-altitude/issues/19)) ([9fea9a7](https://github.com/binarylogic/py-trinnov-altitude/commit/9fea9a77af0285dfab99775e190fe5ccf5b9e146))
+
 ## [3.2.2](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.1...v3.2.2) (2026-03-10)
 
 
