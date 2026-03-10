@@ -82,6 +82,13 @@ def synced_lines(version="4.3.2", device_id="1", preset="Builtin", source="Apple
     ]
 
 
+class CloseRaisesNotConnectedTransport(FakeTransport):
+    async def close(self):
+        self.close_calls += 1
+        self.connected = False
+        raise NotConnectedError()
+
+
 @pytest.mark.asyncio
 async def test_validate_mac():
     with pytest.raises(MalformedMacAddressError):
@@ -491,6 +498,63 @@ async def test_reconnect_stops_when_auto_reconnect_disabled():
     assert client.connected is False
 
     await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_altitude_ci_startup_noise_does_not_count_as_unknown():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "SOURCES_CHANGED",
+            "OPTSOURCE 0 Source 1",
+            "SOURCE 0",
+            "CURRENT_SOURCE_FORMAT_NAME Trinnov narrow",
+            "CURRENT_SOURCE_CHANNELS_ORDER_IS_DCI 0",
+            "CURRENT_SOURCE_CHANNELS_ORDER L-R-C-Ls-Rs-Lrs-Rrs-Lw-Rw-Ltf-Rtf-Ltm-Rtm-Ltr-Rtr-LFE",
+            "META_PRESET_LOADED 0",
+            "START_RUNNING",
+            "CALIBRATION_DONE",
+            "REMAPPING_MODE none",
+            "VOLUME -50.000000",
+            "MON_VOL -50.0",
+            "DISPLAY_VOLUME -50.0",
+            "MON_REMOTE_SPKER_MAIN -1",
+            "MON_REMOTE_SPKER_ALT1 -1",
+            "MON_REMOTE_SPKER_ALT2 -1",
+            "MON_REMOTE_MAINSRC1 -1",
+            "AUDIOSYNC_STATUS 1",
+            "DECODER NONAUDIO 0 PLAYABLE 1 DECODER PCM UPMIXER none",
+            "AUDIOSYNC Master",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        assert client.unknown_message_count == 0
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_stop_swallows_not_connected_during_transport_close():
+    transport = CloseRaisesNotConnectedTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await client.stop()
+
+    assert transport.close_calls == 1
 
 
 @pytest.mark.asyncio

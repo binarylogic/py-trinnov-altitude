@@ -126,6 +126,10 @@ def test_parse_known_startup_noise_as_ignored_messages():
         "CALIBRATION_DONE",
         "REMAPPING_MODE none",
         "MON_VOL -50.0",
+        "DISPLAY_VOLUME -50.0",
+        "MON_REMOTE_SPKER_MAIN -1",
+        "MON_REMOTE_SPKER_ALT1 -1",
+        "MON_REMOTE_MAINSRC1 -1",
     ]
     for line in lines:
         message = parse_message(line)
