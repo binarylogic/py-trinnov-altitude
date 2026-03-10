@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.2](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.1...v3.2.2) (2026-03-10)
+
+
+### Bug Fixes
+
+* separate configured and active upmixer state ([7ea0bc8](https://github.com/binarylogic/py-trinnov-altitude/commit/7ea0bc84cb1dc7005a7871cab9b593038c3a6cd1))
+
 ## [3.2.1](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.0...v3.2.1) (2026-03-09)
 
 
