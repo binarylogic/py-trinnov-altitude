@@ -389,6 +389,10 @@ class TrinnovAltitudeClient:
 
     async def preset_set(self, preset_id: int) -> None:
         await self._command(f"loadp {preset_id}")
+        # Preset changes can take a moment to settle on the device. Query the
+        # authoritative current preset explicitly so state converges on the
+        # selected runtime preset instead of relying on transient events alone.
+        await self.preset_get()
 
     async def source_get(self) -> None:
         await self._command("get_current_profile")
@@ -417,6 +421,7 @@ class TrinnovAltitudeClient:
 
     async def upmixer_set(self, mode: const.UpmixerMode) -> None:
         await self._command(f"upmixer {mode.value}")
+        await self.upmixer_get()
 
     async def state_get_current(self) -> None:
         await self._command("get_current_state")

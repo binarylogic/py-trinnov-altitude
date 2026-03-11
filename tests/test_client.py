@@ -458,6 +458,67 @@ async def test_source_set_queries_current_profile_after_command():
 
 
 @pytest.mark.asyncio
+async def test_preset_set_queries_current_preset_after_command():
+    transport = FakeTransport(
+        incoming_lines=[
+            *synced_lines(preset="Builtin"),
+            "OK",
+            "CURRENT_PRESET 1",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.presets = {0: "Builtin", 1: "MLP"}
+    client.state.current_preset_index = 0
+    client.state.preset = "Builtin"
+
+    await client.preset_set(1)
+    await asyncio.wait_for(_wait_for(lambda: client.state.preset == "MLP"), timeout=1)
+
+    assert transport.sent[-2:] == ["loadp 1", "get_current_preset"]
+    assert client.state.current_preset_index == 1
+    assert client.state.preset == "MLP"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_upmixer_set_queries_current_upmixer_after_command():
+    transport = FakeTransport(
+        incoming_lines=[
+            *synced_lines(),
+            "OK",
+            "UPMIXER dolby dolby",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.upmixer = "none"
+
+    await client.upmixer_set(const.UpmixerMode.MODE_DOLBY)
+    await asyncio.wait_for(_wait_for(lambda: client.state.upmixer == "dolby"), timeout=1)
+
+    assert transport.sent[-2:] == ["upmixer dolby", "upmixer"]
+    assert client.state.upmixer == "dolby"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
 async def test_sync_preserves_non_generic_source_name_when_optsource_is_generic():
     transport = FakeTransport(
         incoming_lines=[
