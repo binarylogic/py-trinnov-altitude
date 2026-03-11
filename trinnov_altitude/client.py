@@ -6,6 +6,7 @@ import asyncio
 import logging
 import random
 import re
+import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
@@ -46,6 +47,8 @@ class TrinnovAltitudeClient:
     DEFAULT_RECONNECT_INITIAL_BACKOFF = 1.0
     DEFAULT_RECONNECT_MAX_BACKOFF = 30.0
     DEFAULT_RECONNECT_JITTER = 0.2
+    DEFAULT_SELECTOR_CONVERGENCE_TIMEOUT = 5.0
+    DEFAULT_SELECTOR_CONVERGENCE_INTERVAL = 0.25
 
     VOLUME_MIN = -120.0
     VOLUME_MAX = 20.0
@@ -67,6 +70,8 @@ class TrinnovAltitudeClient:
         transport_factory: Callable[[], Transport] | None = None,
         sleep_func: Callable[[float], Awaitable[None]] | None = None,
         random_func: RandomFunc | None = None,
+        selector_convergence_timeout: float = DEFAULT_SELECTOR_CONVERGENCE_TIMEOUT,
+        selector_convergence_interval: float = DEFAULT_SELECTOR_CONVERGENCE_INTERVAL,
     ) -> None:
         if mac is not None:
             self.validate_mac(mac)
@@ -83,6 +88,8 @@ class TrinnovAltitudeClient:
         self.reconnect_max_backoff = reconnect_max_backoff
         self.reconnect_jitter = reconnect_jitter
         self.auto_reconnect = auto_reconnect
+        self.selector_convergence_timeout = selector_convergence_timeout
+        self.selector_convergence_interval = selector_convergence_interval
 
         self.logger = logger if logger is not None else logging.getLogger(__name__)
         self.state = AltitudeState()
@@ -402,9 +409,12 @@ class TrinnovAltitudeClient:
 
     async def source_set(self, source_id: int) -> None:
         await self._command(f"profile {source_id}")
-        # Trinnov does not reliably emit CURRENT_PROFILE after a profile change.
-        # Query it explicitly so state converges on the authoritative active input.
-        await self.source_get()
+        # Source changes settle asynchronously on real hardware. Poll the
+        # authoritative current profile until the active source converges.
+        await self._refresh_until(
+            refresh=self.source_get,
+            predicate=lambda: self.state.current_source_index == source_id,
+        )
 
     async def source_set_by_name(self, name: str) -> None:
         for source_id, source_name in self.state.sources.items():
@@ -412,6 +422,21 @@ class TrinnovAltitudeClient:
                 await self.source_set(source_id)
                 return
         raise ValueError(f"Unknown source name: {name}")
+
+    async def _refresh_until(
+        self,
+        refresh: Callable[[], Awaitable[None]],
+        predicate: Callable[[], bool],
+    ) -> None:
+        deadline = time.monotonic() + self.selector_convergence_timeout
+        while True:
+            await refresh()
+            await self._sleep(0)
+            if predicate():
+                return
+            if time.monotonic() >= deadline:
+                return
+            await self._sleep(self.selector_convergence_interval)
 
     async def remapping_mode_set(self, mode: const.RemappingMode) -> None:
         await self._command(f"remapping_mode {mode.value}")

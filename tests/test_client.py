@@ -426,14 +426,7 @@ async def test_current_profile_remains_authoritative_when_source_message_disagre
 
 @pytest.mark.asyncio
 async def test_source_set_queries_current_profile_after_command():
-    transport = FakeTransport(
-        incoming_lines=[
-            *synced_lines(source="Kaleidescape"),
-            "OK",
-            "OK",
-            "CURRENT_PROFILE 1",
-        ]
-    )
+    transport = FakeTransport(incoming_lines=[*synced_lines(source="Kaleidescape")])
     client = TrinnovAltitudeClient(
         host="unused",
         transport_factory=FakeTransportFactory([transport]),
@@ -447,12 +440,47 @@ async def test_source_set_queries_current_profile_after_command():
     client.state.current_source_index = 0
     client.state.source = "Kaleidescape"
 
+    transport.push("CURRENT_PROFILE 1")
     await client.source_set(1)
     await asyncio.wait_for(_wait_for(lambda: client.state.source == "Apple TV"), timeout=1)
 
-    assert transport.sent[-2:] == ["profile 1", "get_current_profile"]
+    source_commands = transport.sent[3:]
+    assert source_commands[0] == "profile 1"
+    assert source_commands.count("get_current_profile") >= 1
     assert client.state.current_source_index == 1
     assert client.state.source == "Apple TV"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_source_set_polls_until_current_profile_converges():
+    transport = FakeTransport(incoming_lines=[*synced_lines(source="Apple TV")])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.1,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.sources = {0: "Kaleidescape", 1: "Apple TV"}
+    client.state.current_source_index = 1
+    client.state.source = "Apple TV"
+
+    transport.push("CURRENT_PROFILE 1")
+    transport.push("CURRENT_PROFILE 0")
+    await client.source_set(0)
+    await asyncio.wait_for(_wait_for(lambda: client.state.source == "Kaleidescape"), timeout=1)
+
+    source_commands = transport.sent[3:]
+    assert source_commands[0] == "profile 0"
+    assert source_commands.count("get_current_profile") >= 2
+    assert client.state.current_source_index == 0
+    assert client.state.source == "Kaleidescape"
 
     await client.stop()
 
@@ -491,13 +519,7 @@ async def test_preset_set_queries_current_preset_after_command():
 
 @pytest.mark.asyncio
 async def test_upmixer_set_queries_current_upmixer_after_command():
-    transport = FakeTransport(
-        incoming_lines=[
-            *synced_lines(),
-            "OK",
-            "UPMIXER dolby dolby",
-        ]
-    )
+    transport = FakeTransport(incoming_lines=[*synced_lines()])
     client = TrinnovAltitudeClient(
         host="unused",
         transport_factory=FakeTransportFactory([transport]),
@@ -509,11 +531,12 @@ async def test_upmixer_set_queries_current_upmixer_after_command():
 
     client.state.upmixer = "none"
 
+    transport.push("UPMIXER dolby dolby")
     await client.upmixer_set(const.UpmixerMode.MODE_DOLBY)
-    await asyncio.wait_for(_wait_for(lambda: client.state.upmixer == "dolby"), timeout=1)
+    await asyncio.wait_for(_wait_for(lambda: client.state.upmixer == "dolby dolby"), timeout=1)
 
     assert transport.sent[-2:] == ["upmixer dolby", "upmixer"]
-    assert client.state.upmixer == "dolby"
+    assert client.state.upmixer == "dolby dolby"
 
     await client.stop()
 
