@@ -398,6 +398,9 @@ class TrinnovAltitudeClient:
 
     async def source_set(self, source_id: int) -> None:
         await self._command(f"profile {source_id}")
+        # Trinnov does not reliably emit CURRENT_PROFILE after a profile change.
+        # Query it explicitly so state converges on the authoritative active input.
+        await self.source_get()
 
     async def source_set_by_name(self, name: str) -> None:
         for source_id, source_name in self.state.sources.items():

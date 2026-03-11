@@ -299,7 +299,10 @@ PARSER_RULES: tuple[Rule, ...] = (
     (re.compile(r"^CURRENT_PRESET\s(-?\d+)$"), _to_current_preset),
     (re.compile(r"^META_PRESET_LOADED\s(-?\d+)$"), _to_meta_preset_loaded),
     (re.compile(r"^CURRENT_PROFILE\s(-?\d+)$"), _to_current_source),
-    (re.compile(r"^SOURCE\s(-?\d+)$"), _to_current_source),
+    # Live Altitude 32 traces emit bare SOURCE <n> during source changes even when the
+    # active user-facing input remains on a different CURRENT_PROFILE. Treat it as noise
+    # until proven otherwise; CURRENT_PROFILE is the authoritative active input signal.
+    (re.compile(r"^SOURCE\s(-?\d+)$"), _to_ignored),
     (re.compile(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)$"), _to_current_source_format),
     (re.compile(r"^CURRENT_SOURCE_CHANNELS_ORDER_IS_DCI\s(0|1)$"), _to_ignored),
     (re.compile(r"^CURRENT_SOURCE_CHANNELS_ORDER\s(.*)$"), _to_ignored),

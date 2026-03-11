@@ -34,10 +34,10 @@ def test_parse_current_profile_message():
     assert message.index == 4
 
 
-def test_parse_source_index_message():
+def test_parse_source_index_message_is_ignored():
     message = parse_message("SOURCE 2")
-    assert isinstance(message, CurrentSourceMessage)
-    assert message.index == 2
+    assert isinstance(message, IgnoredMessage)
+    assert message.raw_message == "SOURCE 2"
 
 
 def test_parse_profile_without_label_maps_to_current_source():

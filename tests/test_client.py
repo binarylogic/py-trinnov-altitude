@@ -369,13 +369,14 @@ async def test_sync_uses_optsource_entries_as_source_catalog():
 
 
 @pytest.mark.asyncio
-async def test_sync_accepts_source_message_as_current_source_index():
+async def test_sync_ignores_source_message_as_current_source_index():
     transport = FakeTransport(
         incoming_lines=[
             "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
             "CURRENT_PRESET 1",
             "PROFILES_CLEAR",
             "PROFILE 0: AppleTV",
+            "CURRENT_PROFILE 0",
             "SOURCE 0",
         ]
     )
@@ -388,11 +389,72 @@ async def test_sync_accepts_source_message_as_current_source_index():
     await client.start()
     try:
         await client.wait_synced(timeout=1)
-        await asyncio.wait_for(_wait_for(lambda: client.state.source == "AppleTV"), timeout=1)
         assert client.state.current_source_index == 0
         assert client.state.source == "AppleTV"
     finally:
         await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_current_profile_remains_authoritative_when_source_message_disagrees():
+    transport = FakeTransport(
+        incoming_lines=[
+            "Welcome on Trinnov Optimizer (Version 4.4.3, ID 10487582)",
+            "CURRENT_PRESET 1",
+            "PROFILES_CLEAR",
+            "PROFILE 0: Kaleidescape",
+            "PROFILE 1: Apple TV",
+            "CURRENT_PROFILE 1",
+            "SOURCE 0",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        await asyncio.wait_for(_wait_for(lambda: client.state.source == "Apple TV"), timeout=1)
+        assert client.state.current_source_index == 1
+        assert client.state.source == "Apple TV"
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_source_set_queries_current_profile_after_command():
+    transport = FakeTransport(
+        incoming_lines=[
+            *synced_lines(source="Kaleidescape"),
+            "OK",
+            "OK",
+            "CURRENT_PROFILE 1",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.sources = {0: "Kaleidescape", 1: "Apple TV"}
+    client.state.current_source_index = 0
+    client.state.source = "Kaleidescape"
+
+    await client.source_set(1)
+    await asyncio.wait_for(_wait_for(lambda: client.state.source == "Apple TV"), timeout=1)
+
+    assert transport.sent[-2:] == ["profile 1", "get_current_profile"]
+    assert client.state.current_source_index == 1
+    assert client.state.source == "Apple TV"
+
+    await client.stop()
 
 
 @pytest.mark.asyncio
@@ -505,6 +567,7 @@ async def test_altitude_ci_startup_noise_does_not_count_as_unknown():
     transport = FakeTransport(
         incoming_lines=[
             "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
+            "IDENTS with_tsf,altitude_ci,decoder_dolby",
             "SOURCES_CHANGED",
             "OPTSOURCE 0 Source 1",
             "SOURCE 0",
@@ -535,7 +598,7 @@ async def test_altitude_ci_startup_noise_does_not_count_as_unknown():
 
     await client.start()
     try:
-        await client.wait_synced(timeout=1)
+        await asyncio.sleep(0.1)
         assert client.unknown_message_count == 0
     finally:
         await client.stop()
