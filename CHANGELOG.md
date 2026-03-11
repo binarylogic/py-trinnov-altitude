@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.2.4](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.3...v3.2.4) (2026-03-11)
+
+
+### Bug Fixes
+
+* poll source state until it converges ([bd5b74f](https://github.com/binarylogic/py-trinnov-altitude/commit/bd5b74f07dff299ef48954c16bcd27dbcff7df32))
+* refresh upmixer state after changes ([333fb78](https://github.com/binarylogic/py-trinnov-altitude/commit/333fb78a64757490a6f41e72d628b28755927739))
+* stabilize source selection state ([23cef2f](https://github.com/binarylogic/py-trinnov-altitude/commit/23cef2f6dbf7c994d21bd116623eb4aaf987cdd6))
+
 ## [3.2.3](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.2...v3.2.3) (2026-03-10)
 
 
