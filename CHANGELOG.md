@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.5](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.4...v3.2.5) (2026-03-16)
+
+
+### Bug Fixes
+
+* refresh selector state from authoritative protocol messages ([873d4e7](https://github.com/binarylogic/py-trinnov-altitude/commit/873d4e7bd5eeef9d3d8f480b6a9fffc810a93a49))
+* refresh selector state inline after preset load hints ([6fd605d](https://github.com/binarylogic/py-trinnov-altitude/commit/6fd605d863dd4012166293615bf24cf3365ba502))
+
 ## [3.2.4](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.3...v3.2.4) (2026-03-11)
 
 
