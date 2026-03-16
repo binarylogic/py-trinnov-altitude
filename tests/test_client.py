@@ -495,9 +495,12 @@ async def test_source_set_polls_until_current_profile_converges():
     client.state.current_source_index = 1
     client.state.source = "Apple TV"
 
+    set_task = asyncio.create_task(client.source_set(0))
+    await asyncio.sleep(0)
     transport.push("CURRENT_PROFILE 1")
+    await asyncio.sleep(0)
     transport.push("CURRENT_PROFILE 0")
-    await client.source_set(0)
+    await set_task
     await asyncio.wait_for(_wait_for(lambda: client.state.source == "Kaleidescape"), timeout=1)
 
     source_commands = transport.sent[3:]
@@ -511,13 +514,7 @@ async def test_source_set_polls_until_current_profile_converges():
 
 @pytest.mark.asyncio
 async def test_preset_set_queries_current_preset_after_command():
-    transport = FakeTransport(
-        incoming_lines=[
-            *synced_lines(preset="Builtin"),
-            "OK",
-            "CURRENT_PRESET 1",
-        ]
-    )
+    transport = FakeTransport(incoming_lines=[*synced_lines(preset="Builtin")])
     client = TrinnovAltitudeClient(
         host="unused",
         transport_factory=FakeTransportFactory([transport]),
@@ -531,7 +528,10 @@ async def test_preset_set_queries_current_preset_after_command():
     client.state.current_preset_index = 0
     client.state.preset = "Builtin"
 
-    await client.preset_set(1)
+    set_task = asyncio.create_task(client.preset_set(1))
+    await asyncio.sleep(0)
+    transport.push("CURRENT_PRESET 1")
+    await set_task
     await asyncio.wait_for(_wait_for(lambda: client.state.preset == "MLP"), timeout=1)
 
     assert transport.sent[-2:] == ["loadp 1", "get_current_preset"]
