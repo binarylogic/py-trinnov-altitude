@@ -1,8 +1,6 @@
 from trinnov_altitude.canonical import (
     SOURCE_LABEL_QUALITY_OPTSOURCE,
     SOURCE_LABEL_QUALITY_PROFILE,
-    SetCurrentPresetEvent,
-    SetCurrentSourceEvent,
     SetDecoderEvent,
     SetFeaturesEvent,
     SetUpmixerModeEvent,
@@ -17,14 +15,14 @@ def test_select_profile_uses_altitude_ci_feature():
     assert select_profile(["with_tsf"]) == PROFILE_DEFAULT
 
 
-def test_meta_preset_loaded_normalizes_to_preset_for_default_profile():
+def test_meta_preset_loaded_does_not_emit_direct_state_events_for_default_profile():
     events = normalize_message(MetaPresetLoadedMessage(index=2), PROFILE_DEFAULT)
-    assert events == [SetCurrentPresetEvent(index=2)]
+    assert events == []
 
 
-def test_meta_preset_loaded_normalizes_to_source_for_altitude_ci_profile():
+def test_meta_preset_loaded_does_not_emit_direct_state_events_for_altitude_ci_profile():
     events = normalize_message(MetaPresetLoadedMessage(index=2), PROFILE_ALTITUDE_CI)
-    assert events == [SetCurrentSourceEvent(index=2)]
+    assert events == []
 
 
 def test_idents_normalization_emits_feature_event():

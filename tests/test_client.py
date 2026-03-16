@@ -155,6 +155,8 @@ async def test_sync_allows_altitude_ci_style_startup_without_catalogs():
             "IDENTS with_tsf,altitude_ci,decoder_dolby",
             "CURRENT_PRESET 0",
             "META_PRESET_LOADED 0",
+            "CURRENT_PRESET 0",
+            "CURRENT_PROFILE 0",
             "DECODER NONAUDIO 0 PLAYABLE 0 DECODER none UPMIXER none",
             "UPMIXER auto",
         ]
@@ -180,6 +182,8 @@ async def test_sync_allows_altitude_ci_style_startup_without_catalogs():
     assert client.state.current_source_index == 0
     assert client.state.active_upmixer == "none"
     assert client.state.upmixer == "auto"
+    assert "get_current_preset" in transport.sent
+    assert "get_current_profile" in transport.sent
 
     await client.stop()
 
@@ -213,12 +217,20 @@ async def test_upmixer_getter_keeps_configured_and_active_values_distinct():
 
 
 @pytest.mark.asyncio
-async def test_meta_preset_loaded_maps_to_preset_for_non_ci_profile():
+async def test_meta_preset_loaded_refreshes_authoritative_selectors_for_non_ci_profile():
     transport = FakeTransport(
         incoming_lines=[
             "Welcome on Trinnov Optimizer (Version 4.3.2, ID 42)",
-            "META_PRESET_LOADED 2",
+            "LABELS_CLEAR",
+            "LABEL 0: Builtin",
+            "PROFILES_CLEAR",
+            "PROFILE 0: Apple TV",
+            "PROFILE 1: Kaleidescape",
+            "CURRENT_PRESET 0",
             "CURRENT_PROFILE 0",
+            "META_PRESET_LOADED 2",
+            "CURRENT_PRESET 0",
+            "CURRENT_PROFILE 1",
         ]
     )
     client = TrinnovAltitudeClient(
@@ -229,15 +241,19 @@ async def test_meta_preset_loaded_maps_to_preset_for_non_ci_profile():
 
     await client.start()
     await client.wait_synced(timeout=1)
+    await asyncio.wait_for(_wait_for(lambda: client.state.source == "Kaleidescape"), timeout=1)
 
-    assert client.state.current_preset_index == 2
-    assert client.state.current_source_index == 0
+    assert client.state.current_preset_index == 0
+    assert client.state.current_source_index == 1
+    assert client.state.source == "Kaleidescape"
+    assert "get_current_preset" in transport.sent
+    assert "get_current_profile" in transport.sent
 
     await client.stop()
 
 
 @pytest.mark.asyncio
-async def test_altitude_ci_meta_preset_loaded_updates_current_source():
+async def test_altitude_ci_meta_preset_loaded_refreshes_current_source_authoritatively():
     transport = FakeTransport(
         incoming_lines=[
             "Welcome on Trinnov Optimizer (Version 5.3.0pre3+#+, ID 19923109)",
@@ -248,6 +264,8 @@ async def test_altitude_ci_meta_preset_loaded_updates_current_source():
             "PROFILE 0: AppleTV",
             "PROFILE 3: Plex",
             "META_PRESET_LOADED 3",
+            "CURRENT_PRESET 3",
+            "CURRENT_PROFILE 3",
         ]
     )
     client = TrinnovAltitudeClient(
@@ -263,6 +281,8 @@ async def test_altitude_ci_meta_preset_loaded_updates_current_source():
         assert client.state.current_preset_index == 3
         assert client.state.current_source_index == 3
         assert client.state.source == "Plex"
+        assert "get_current_preset" in transport.sent
+        assert "get_current_profile" in transport.sent
     finally:
         await client.stop()
 
@@ -277,6 +297,8 @@ async def test_sync_keeps_valid_current_source_when_bootstrap_emits_profile_minu
             "SOURCE 0",
             "META_PRESET_LOADED 0",
             "PROFILE -1",
+            "CURRENT_PRESET 3",
+            "CURRENT_PROFILE 0",
             "LABELS_CLEAR",
             "LABEL 3: 9.1.6 Infra Config",
             "PROFILES_CLEAR",
@@ -302,6 +324,8 @@ async def test_sync_keeps_valid_current_source_when_bootstrap_emits_profile_minu
         assert client.state.current_preset_index == 3
         assert client.state.preset == "9.1.6 Infra Config"
         assert client.state.sources == {0: "AppleTV", 1: "Kscape", 2: "Xbox"}
+        assert "get_current_preset" in transport.sent
+        assert "get_current_profile" in transport.sent
     finally:
         await client.stop()
 

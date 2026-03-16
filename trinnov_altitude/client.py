@@ -16,7 +16,14 @@ from wakeonlan import send_magic_packet
 
 from trinnov_altitude import const, exceptions
 from trinnov_altitude.adapter import AdapterEvent, AltitudeSnapshot, AltitudeStateAdapter, StateDelta
-from trinnov_altitude.protocol import ErrorMessage, Message, OKMessage, UnknownMessage, parse_message
+from trinnov_altitude.protocol import (
+    ErrorMessage,
+    Message,
+    MetaPresetLoadedMessage,
+    OKMessage,
+    UnknownMessage,
+    parse_message,
+)
 from trinnov_altitude.state import AltitudeState
 from trinnov_altitude.transport import TcpTransport
 
@@ -109,6 +116,7 @@ class TrinnovAltitudeClient:
         self._ack_waiters: deque[asyncio.Future[Message]] = deque()
         self._unknown_message_count = 0
         self._unknown_message_samples: deque[str] = deque(maxlen=20)
+        self._selector_refresh_task: asyncio.Task[None] | None = None
 
     @property
     def connected(self) -> bool:
@@ -198,6 +206,7 @@ class TrinnovAltitudeClient:
 
         self._sync_event.clear()
         self.state.reset_runtime_values()
+        self._cancel_selector_refresh_task()
 
         self._transport = self._transport_factory()
         await self._transport.connect(timeout=self.connect_timeout)
@@ -242,6 +251,8 @@ class TrinnovAltitudeClient:
                         self._record_unknown_message(message.raw_message)
 
                     self.state.apply(message)
+                    if isinstance(message, MetaPresetLoadedMessage):
+                        self._schedule_selector_refresh()
 
                     if isinstance(message, ErrorMessage):
                         self.logger.error("Received error from Trinnov Altitude: %s", message.error)
@@ -363,6 +374,33 @@ class TrinnovAltitudeClient:
                 callback(event, message)
             except Exception:
                 self.logger.exception("Callback raised an exception during '%s'", event)
+
+    def _schedule_selector_refresh(self) -> None:
+        if not self.connected:
+            return
+        if (
+            self._selector_refresh_task is not None
+            and not self._selector_refresh_task.done()
+        ):
+            return
+        self._selector_refresh_task = asyncio.create_task(
+            self._async_refresh_authoritative_selectors()
+        )
+
+    def _cancel_selector_refresh_task(self) -> None:
+        if self._selector_refresh_task is None:
+            return
+        self._selector_refresh_task.cancel()
+        self._selector_refresh_task = None
+
+    async def _async_refresh_authoritative_selectors(self) -> None:
+        try:
+            await self.preset_get()
+            await self.source_get()
+        except (exceptions.NotConnectedError, OSError):
+            return
+        finally:
+            self._selector_refresh_task = None
 
     @property
     def volume(self) -> float | None:

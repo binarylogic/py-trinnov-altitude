@@ -84,9 +84,10 @@ def normalize_message(message: Message, profile: str) -> list[CanonicalEvent]:  
     if isinstance(message, IdentsMessage):
         return [SetFeaturesEvent(features=message.features)]
     if isinstance(message, MetaPresetLoadedMessage):
-        if profile == PROFILE_ALTITUDE_CI:
-            return [SetCurrentSourceEvent(index=message.index)]
-        return [SetCurrentPresetEvent(index=message.index)]
+        # This is a firmware-specific transition hint, not an authoritative
+        # selector identity signal. The client refreshes CURRENT_PRESET and
+        # CURRENT_PROFILE explicitly when it sees this message.
+        return []
     if isinstance(message, PresetMessage):
         return [UpsertPresetEvent(index=message.index, name=message.name)]
     if isinstance(message, PresetsClearMessage):
