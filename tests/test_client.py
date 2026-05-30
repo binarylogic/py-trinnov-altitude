@@ -13,6 +13,13 @@ from trinnov_altitude.exceptions import (
     MalformedMacAddressError,
     NotConnectedError,
 )
+from trinnov_altitude.lifecycle import (
+    ConnectionErrorKind,
+    ControlHealth,
+    PowerState,
+    SyncState,
+    TransportState,
+)
 
 
 class FakeTransport:
@@ -646,6 +653,12 @@ async def test_reconnect_uses_backoff_until_success():
     assert client.state.version == "4.3.3"
     assert client.state.preset == "Movie"
     assert client.state.source == "Blu-ray"
+    assert client.runtime.transport is TransportState.CONNECTED
+    assert client.runtime.sync is SyncState.SYNCED
+    assert client.runtime.control is ControlHealth.AVAILABLE
+    assert client.runtime.power is PowerState.READY
+    assert client.runtime.last_error is not None
+    assert client.runtime.last_error.kind is ConnectionErrorKind.CONNECTION_FAILED
 
     await client.stop()
 
@@ -666,6 +679,72 @@ async def test_reconnect_stops_when_auto_reconnect_disabled():
     await asyncio.wait_for(_wait_for(lambda: not client.connected), timeout=1)
 
     assert client.connected is False
+    assert client.runtime.transport is TransportState.DISCONNECTED
+    assert client.runtime.sync is SyncState.UNSYNCED
+    assert client.runtime.control is ControlHealth.UNAVAILABLE
+    assert client.runtime.last_error is not None
+    assert client.runtime.last_error.kind is ConnectionErrorKind.NOT_CONNECTED
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_initial_connection_failure_updates_runtime():
+    transport = FakeTransport(connect_exception=ConnectionFailedError(OSError("connection refused")))
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    with pytest.raises(ConnectionFailedError):
+        await client.start()
+
+    assert client.runtime.transport is TransportState.DISCONNECTED
+    assert client.runtime.sync is SyncState.UNSYNCED
+    assert client.runtime.control is ControlHealth.UNAVAILABLE
+    assert client.runtime.power is PowerState.UNKNOWN
+    assert client.runtime.last_error is not None
+    assert client.runtime.last_error.kind is ConnectionErrorKind.CONNECTION_FAILED
+
+
+@pytest.mark.asyncio
+async def test_power_on_marks_waking_without_claiming_connected(monkeypatch):
+    sent = []
+    client = TrinnovAltitudeClient(host="unused", mac="00:11:22:33:44:55")
+
+    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", lambda mac: sent.append(mac))
+
+    client.power_on()
+
+    assert sent == ["00:11:22:33:44:55"]
+    assert client.runtime.power is PowerState.WAKING
+    assert client.runtime.transport is TransportState.DISCONNECTED
+    assert client.runtime.control is ControlHealth.UNAVAILABLE
+
+
+@pytest.mark.asyncio
+async def test_adapter_callback_emits_runtime_deltas():
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+    adapter = AltitudeStateAdapter()
+    updates = []
+
+    client.register_adapter_callback(adapter, lambda snapshot, deltas, events: updates.append((snapshot, deltas, events)))
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    changed_fields = {delta.field for _, deltas, _ in updates for delta in deltas}
+    event_kinds = {event.kind for _, _, events in updates for event in events}
+
+    assert "runtime" in changed_fields
+    assert "transport_changed" in event_kinds
+    assert updates[-1][0].runtime.control is ControlHealth.AVAILABLE
 
     await client.stop()
 

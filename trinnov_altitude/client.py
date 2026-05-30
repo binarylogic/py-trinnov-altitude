@@ -15,7 +15,17 @@ from typing import Protocol
 from wakeonlan import send_magic_packet
 
 from trinnov_altitude import const, exceptions
-from trinnov_altitude.adapter import AdapterEvent, AltitudeSnapshot, AltitudeStateAdapter, StateDelta
+from trinnov_altitude.adapter import AdapterEvent, AltitudeSnapshot, AltitudeStateAdapter, StateDelta, snapshot_from_state
+from trinnov_altitude.lifecycle import (
+    AltitudeRuntimeState,
+    ConnectionErrorInfo,
+    ConnectionErrorKind,
+    ControlHealth,
+    PowerState,
+    SyncState,
+    TransportState,
+    utc_now,
+)
 from trinnov_altitude.protocol import (
     ErrorMessage,
     Message,
@@ -100,6 +110,7 @@ class TrinnovAltitudeClient:
 
         self.logger = logger if logger is not None else logging.getLogger(__name__)
         self.state = AltitudeState()
+        self.runtime = AltitudeRuntimeState()
 
         self._callbacks: set[Callback] = set()
         self._listen_task: asyncio.Task[None] | None = None
@@ -121,6 +132,11 @@ class TrinnovAltitudeClient:
     def connected(self) -> bool:
         return self._transport is not None and self._transport.connected
 
+    @property
+    def snapshot(self) -> AltitudeSnapshot:
+        """Return the current protocol and runtime state as one immutable snapshot."""
+        return snapshot_from_state(self.state, self.runtime)
+
     @classmethod
     def validate_mac(cls, mac_address: str) -> bool:
         pattern = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
@@ -138,11 +154,13 @@ class TrinnovAltitudeClient:
         """Register a callback that receives adapter snapshots, deltas and events."""
 
         def wrapped(event: str, message: Message | None) -> None:
-            if event != "received_message" or message is None:
+            if event == "received_message" and message is None:
+                return
+            if event not in {"received_message", "runtime_changed", "connected", "disconnected"}:
                 return
 
             initial = adapter.last_snapshot is None
-            snapshot, deltas, events = adapter.update(self.state)
+            snapshot, deltas, events = adapter.update(self.state, self.runtime)
 
             if initial:
                 callback(snapshot, deltas, [AdapterEvent(kind="initial", payload={}), *events])
@@ -203,15 +221,37 @@ class TrinnovAltitudeClient:
         if self.connected:
             return
 
+        self._set_runtime(
+            transport=TransportState.CONNECTING,
+            sync=SyncState.SYNCING,
+            control=ControlHealth.CONNECTING,
+        )
         self._sync_event.clear()
         self.state.reset_runtime_values()
 
         self._transport = self._transport_factory()
-        await self._transport.connect(timeout=self.connect_timeout)
+        try:
+            await self._transport.connect(timeout=self.connect_timeout)
+        except Exception as err:
+            self._transport = None
+            self._set_runtime(
+                transport=TransportState.DISCONNECTED,
+                sync=SyncState.UNSYNCED,
+                control=ControlHealth.UNAVAILABLE,
+                last_error=_connection_error_info(err),
+            )
+            raise
 
         self.state.bypass = False
         self.state.dim = False
         self.state.mute = False
+
+        self._set_runtime(
+            transport=TransportState.CONNECTED,
+            sync=SyncState.SYNCING,
+            control=ControlHealth.CONNECTING,
+            last_connected_at=utc_now(),
+        )
 
         self._emit("connected", None)
 
@@ -219,12 +259,23 @@ class TrinnovAltitudeClient:
         await self._command("get_current_state")
         await self._command("upmixer")
 
-    async def _disconnect_statefully(self) -> None:
+    async def _disconnect_statefully(self, error: Exception | None = None) -> None:
         transport = self._transport
         self._transport = None
 
         self._sync_event.clear()
         self.state.reset_runtime_values()
+        changes: dict[str, object] = {
+            "transport": TransportState.DISCONNECTED,
+            "sync": SyncState.UNSYNCED,
+            "control": ControlHealth.UNAVAILABLE,
+            "last_disconnected_at": utc_now(),
+        }
+        if error is not None:
+            changes["last_error"] = _connection_error_info(error)
+        if self.runtime.power == PowerState.READY:
+            changes["power"] = PowerState.UNKNOWN
+        self._set_runtime(**changes)
 
         while self._ack_waiters:
             waiter = self._ack_waiters.popleft()
@@ -256,14 +307,20 @@ class TrinnovAltitudeClient:
                         self.logger.error("Received error from Trinnov Altitude: %s", message.error)
 
                     self._resolve_ack_waiter(message)
+                    self._set_runtime(last_message_at=utc_now())
                     self._emit("received_message", message)
 
                     if self.state.synced and not self._sync_event.is_set():
+                        self._set_runtime(
+                            sync=SyncState.SYNCED,
+                            control=ControlHealth.AVAILABLE,
+                            power=PowerState.READY,
+                        )
                         self._sync_event.set()
                 except asyncio.TimeoutError:
                     continue
-                except (exceptions.NotConnectedError, OSError):
-                    await self._disconnect_statefully()
+                except (exceptions.NotConnectedError, OSError) as err:
+                    await self._disconnect_statefully(err)
                     reconnected = await self._attempt_reconnect_until_success()
                     if not reconnected:
                         break
@@ -314,6 +371,7 @@ class TrinnovAltitudeClient:
             except (exceptions.ConnectionFailedError, exceptions.ConnectionTimeoutError):
                 capped_delay = min(delay, self.reconnect_max_backoff)
                 jitter_amount = capped_delay * self.reconnect_jitter * self._random()
+                self._emit("reconnect_scheduled", None)
                 await self._sleep(capped_delay + jitter_amount)
                 delay = min(max(capped_delay * 2, self.reconnect_initial_backoff), self.reconnect_max_backoff)
 
@@ -373,6 +431,14 @@ class TrinnovAltitudeClient:
             except Exception:
                 self.logger.exception("Callback raised an exception during '%s'", event)
 
+    def _set_runtime(self, **changes: object) -> None:
+        previous = self.runtime
+        current = previous.with_changes(**changes)
+        if current == previous:
+            return
+        self.runtime = current
+        self._emit("runtime_changed", None)
+
     async def _refresh_authoritative_selectors(self) -> None:
         await self.preset_get()
         await self.source_get()
@@ -393,10 +459,12 @@ class TrinnovAltitudeClient:
     def power_on(self) -> None:
         if self.mac is None:
             raise exceptions.NoMacAddressError()
+        self._set_runtime(power=PowerState.WAKING)
         send_magic_packet(self.mac)
 
     async def power_off(self) -> None:
         await self._command("power_off_SECURED_FHZMCH48FE")
+        self._set_runtime(power=PowerState.OFF)
 
     async def preset_get(self) -> None:
         await self._command("get_current_preset")
@@ -592,3 +660,17 @@ class TrinnovAltitudeClient:
 
     async def bye(self) -> None:
         await self._command("bye")
+
+
+def _connection_error_info(error: Exception) -> ConnectionErrorInfo:
+    if isinstance(error, exceptions.ConnectionFailedError):
+        kind = ConnectionErrorKind.CONNECTION_FAILED
+    elif isinstance(error, exceptions.ConnectionTimeoutError):
+        kind = ConnectionErrorKind.CONNECTION_TIMEOUT
+    elif isinstance(error, exceptions.NotConnectedError):
+        kind = ConnectionErrorKind.NOT_CONNECTED
+    elif isinstance(error, OSError):
+        kind = ConnectionErrorKind.OS_ERROR
+    else:
+        kind = ConnectionErrorKind.UNKNOWN
+    return ConnectionErrorInfo(kind=kind, message=str(error), at=utc_now())

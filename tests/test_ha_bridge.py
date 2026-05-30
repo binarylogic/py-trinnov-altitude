@@ -29,6 +29,10 @@ def test_coordinator_payload_contains_normalized_fields():
     snapshot = snapshot_from_state(state)
     payload = coordinator_payload(snapshot)
     assert payload["available"] is True
+    assert payload["transport_state"] == "connected"
+    assert payload["sync_state"] == "synced"
+    assert payload["control_health"] == "available"
+    assert payload["power_state"] == "ready"
     assert payload["version"] == "4.3.2"
     assert payload["device_id"] == "42"
     assert payload["preset"] == "Builtin"

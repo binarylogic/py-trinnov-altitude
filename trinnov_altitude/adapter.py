@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 
+from trinnov_altitude.lifecycle import AltitudeRuntimeState, ControlHealth, PowerState, SyncState, TransportState
 from trinnov_altitude.state import AltitudeState
 
 
@@ -11,6 +12,7 @@ from trinnov_altitude.state import AltitudeState
 class AltitudeSnapshot:
     """Immutable, comparison-friendly view of ``AltitudeState``."""
 
+    runtime: AltitudeRuntimeState
     synced: bool
     version: str | None
     id: str | None
@@ -50,9 +52,17 @@ class AdapterEvent:
     payload: dict[str, object]
 
 
-def snapshot_from_state(state: AltitudeState) -> AltitudeSnapshot:
+def snapshot_from_state(state: AltitudeState, runtime: AltitudeRuntimeState | None = None) -> AltitudeSnapshot:
     """Build an immutable snapshot from runtime state."""
+    if runtime is None and state.synced:
+        runtime = AltitudeRuntimeState(
+            transport=TransportState.CONNECTED,
+            sync=SyncState.SYNCED,
+            control=ControlHealth.AVAILABLE,
+            power=PowerState.READY,
+        )
     return AltitudeSnapshot(
+        runtime=runtime or AltitudeRuntimeState(),
         synced=state.synced,
         version=state.version,
         id=state.id,
@@ -86,8 +96,12 @@ class AltitudeStateAdapter:
     def last_snapshot(self) -> AltitudeSnapshot | None:
         return self._last_snapshot
 
-    def update(self, state: AltitudeState) -> tuple[AltitudeSnapshot, list[StateDelta], list[AdapterEvent]]:
-        snapshot = snapshot_from_state(state)
+    def update(
+        self,
+        state: AltitudeState,
+        runtime: AltitudeRuntimeState | None = None,
+    ) -> tuple[AltitudeSnapshot, list[StateDelta], list[AdapterEvent]]:
+        snapshot = snapshot_from_state(state, runtime)
         previous = self._last_snapshot
         self._last_snapshot = snapshot
 
@@ -135,6 +149,10 @@ def _build_events(previous: AltitudeSnapshot, current: AltitudeSnapshot) -> list
             "active_upmixer",
         ),
         _change_event("upmixer_changed", previous.upmixer, current.upmixer, "upmixer"),
+        _change_event("transport_changed", previous.runtime.transport, current.runtime.transport, "transport"),
+        _change_event("sync_changed", previous.runtime.sync, current.runtime.sync, "sync"),
+        _change_event("control_health_changed", previous.runtime.control, current.runtime.control, "control"),
+        _change_event("power_changed", previous.runtime.power, current.runtime.power, "power"),
     ):
         if event is not None:
             events.append(event)

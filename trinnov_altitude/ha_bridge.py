@@ -32,7 +32,16 @@ EventEmitter = Callable[[str, dict[str, object]], None]
 def coordinator_payload(snapshot: AltitudeSnapshot) -> dict[str, Any]:
     """Build one coordinator payload dictionary from a snapshot."""
     return {
-        "available": snapshot.synced,
+        "available": snapshot.runtime.control.value == "available",
+        "transport_state": snapshot.runtime.transport.value,
+        "sync_state": snapshot.runtime.sync.value,
+        "control_health": snapshot.runtime.control.value,
+        "power_state": snapshot.runtime.power.value,
+        "last_error": snapshot.runtime.last_error.message if snapshot.runtime.last_error else None,
+        "last_error_kind": snapshot.runtime.last_error.kind.value if snapshot.runtime.last_error else None,
+        "last_connected_at": snapshot.runtime.last_connected_at,
+        "last_disconnected_at": snapshot.runtime.last_disconnected_at,
+        "last_message_at": snapshot.runtime.last_message_at,
         "version": snapshot.version,
         "device_id": snapshot.id,
         "volume_db": snapshot.volume,
