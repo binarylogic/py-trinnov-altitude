@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.5...v3.3.0) (2026-05-30)
+
+
+### Features
+
+* expose explicit runtime lifecycle state ([63b7c8a](https://github.com/binarylogic/py-trinnov-altitude/commit/63b7c8ad9a5bc086b3b3f7cddc22bc3be829d2d8))
+
 ## [3.2.5](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.4...v3.2.5) (2026-03-16)
 
 
