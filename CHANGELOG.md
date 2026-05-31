@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.0...v3.3.1) (2026-05-31)
+
+
+### Bug Fixes
+
+* keep synced runtime power ready ([0e2c46e](https://github.com/binarylogic/py-trinnov-altitude/commit/0e2c46eb5476744e24830d0163904029cced0dc1))
+
 ## [3.3.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.2.5...v3.3.0) (2026-05-30)
 
 
