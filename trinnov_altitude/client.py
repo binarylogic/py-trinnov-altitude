@@ -310,15 +310,7 @@ class TrinnovAltitudeClient:
                     self._set_runtime(last_message_at=utc_now())
                     self._emit("received_message", message)
 
-                    if self.state.synced:
-                        changes: dict[str, object] = {
-                            "sync": SyncState.SYNCED,
-                            "control": ControlHealth.AVAILABLE,
-                        }
-                        if self.runtime.power is not PowerState.READY:
-                            changes["power"] = PowerState.READY
-                        self._set_runtime(**changes)
-                        self._sync_event.set()
+                    self._mark_ready_when_synced()
                 except asyncio.TimeoutError:
                     continue
                 except (exceptions.NotConnectedError, OSError) as err:
@@ -440,6 +432,18 @@ class TrinnovAltitudeClient:
             return
         self.runtime = current
         self._emit("runtime_changed", None)
+
+    def _mark_ready_when_synced(self) -> None:
+        if not self.state.synced:
+            return
+        changes: dict[str, object] = {
+            "sync": SyncState.SYNCED,
+            "control": ControlHealth.AVAILABLE,
+        }
+        if self.runtime.power is not PowerState.READY:
+            changes["power"] = PowerState.READY
+        self._set_runtime(**changes)
+        self._sync_event.set()
 
     async def _refresh_authoritative_selectors(self) -> None:
         await self.preset_get()
