@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.2](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.1...v3.3.2) (2026-05-31)
+
+
+### Bug Fixes
+
+* reduce runtime readiness listener complexity ([ff03042](https://github.com/binarylogic/py-trinnov-altitude/commit/ff03042da90ac7d44dc21ae331d7eafe8e77802c))
+
 ## [3.3.1](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.0...v3.3.1) (2026-05-31)
 
 
