@@ -310,12 +310,14 @@ class TrinnovAltitudeClient:
                     self._set_runtime(last_message_at=utc_now())
                     self._emit("received_message", message)
 
-                    if self.state.synced and not self._sync_event.is_set():
-                        self._set_runtime(
-                            sync=SyncState.SYNCED,
-                            control=ControlHealth.AVAILABLE,
-                            power=PowerState.READY,
-                        )
+                    if self.state.synced:
+                        changes: dict[str, object] = {
+                            "sync": SyncState.SYNCED,
+                            "control": ControlHealth.AVAILABLE,
+                        }
+                        if self.runtime.power is not PowerState.READY:
+                            changes["power"] = PowerState.READY
+                        self._set_runtime(**changes)
                         self._sync_event.set()
                 except asyncio.TimeoutError:
                     continue
@@ -459,6 +461,9 @@ class TrinnovAltitudeClient:
     def power_on(self) -> None:
         if self.mac is None:
             raise exceptions.NoMacAddressError()
+        if self.connected and self.state.synced:
+            self._set_runtime(power=PowerState.READY)
+            return
         self._set_runtime(power=PowerState.WAKING)
         send_magic_packet(self.mac)
 

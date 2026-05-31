@@ -724,6 +724,32 @@ async def test_power_on_marks_waking_without_claiming_connected(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_power_on_does_not_downgrade_synced_connection(monkeypatch):
+    sent = []
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        mac="00:11:22:33:44:55",
+        transport_factory=FakeTransportFactory([transport]),
+    )
+
+    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", lambda mac: sent.append(mac))
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.power_on()
+
+    assert sent == []
+    assert client.runtime.transport is TransportState.CONNECTED
+    assert client.runtime.sync is SyncState.SYNCED
+    assert client.runtime.control is ControlHealth.AVAILABLE
+    assert client.runtime.power is PowerState.READY
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
 async def test_adapter_callback_emits_runtime_deltas():
     transport = FakeTransport(incoming_lines=synced_lines())
     client = TrinnovAltitudeClient(
