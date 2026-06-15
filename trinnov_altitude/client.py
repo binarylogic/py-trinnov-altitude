@@ -485,11 +485,12 @@ class TrinnovAltitudeClient:
         await self._command("get_all_label")
 
     async def preset_set(self, preset_id: int) -> None:
-        await self._command(f"loadp {preset_id}")
-        # Preset changes can take a moment to settle on the device. Query the
-        # authoritative current preset explicitly so state converges on the
-        # selected runtime preset instead of relying on transient events alone.
-        await self.preset_get()
+        await self._command_until(
+            command=lambda: self._command(f"loadp {preset_id}"),
+            refresh=self.preset_get,
+            predicate=lambda: self.state.current_preset_index == preset_id,
+            description=f"preset {preset_id} to become active",
+        )
 
     async def source_get(self) -> None:
         await self._command("get_current_profile")
@@ -498,12 +499,11 @@ class TrinnovAltitudeClient:
         await self._command(f"get_profile_name {source_id}")
 
     async def source_set(self, source_id: int) -> None:
-        await self._command(f"profile {source_id}")
-        # Source changes settle asynchronously on real hardware. Poll the
-        # authoritative current profile until the active source converges.
-        await self._refresh_until(
+        await self._command_until(
+            command=lambda: self._command(f"profile {source_id}"),
             refresh=self.source_get,
             predicate=lambda: self.state.current_source_index == source_id,
+            description=f"source {source_id} to become active",
         )
 
     async def source_set_by_name(self, name: str) -> None:
@@ -513,19 +513,24 @@ class TrinnovAltitudeClient:
                 return
         raise ValueError(f"Unknown source name: {name}")
 
-    async def _refresh_until(
+    async def _command_until(
         self,
+        command: Callable[[], Awaitable[Message | None]],
         refresh: Callable[[], Awaitable[None]],
         predicate: Callable[[], bool],
+        description: str,
     ) -> None:
+        if predicate():
+            return
         deadline = time.monotonic() + self.selector_convergence_timeout
         while True:
+            await command()
             await refresh()
             await self._sleep(0)
             if predicate():
                 return
             if time.monotonic() >= deadline:
-                return
+                raise exceptions.CommandConvergenceTimeoutError(description, self.selector_convergence_timeout)
             await self._sleep(self.selector_convergence_interval)
 
     async def remapping_mode_set(self, mode: const.RemappingMode) -> None:
@@ -542,7 +547,13 @@ class TrinnovAltitudeClient:
         await self._command("get_current_state")
 
     async def volume_set(self, db: float) -> None:
-        await self._command(f"volume {db}")
+        target = round(db, 1)
+        await self._command_until(
+            command=lambda: self._command(f"volume {target}"),
+            refresh=self.state_get_current,
+            predicate=lambda: self.state.volume is not None and abs(self.state.volume - target) <= 0.05,
+            description=f"volume {target:.1f} dB to be active",
+        )
 
     async def volume_adjust(self, delta: float) -> None:
         await self._command(f"dvolume {delta}")
