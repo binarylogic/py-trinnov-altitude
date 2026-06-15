@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.3](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.2...v3.3.3) (2026-06-15)
+
+
+### Bug Fixes
+
+* converge idempotent commands by readback ([#32](https://github.com/binarylogic/py-trinnov-altitude/issues/32)) ([10e3833](https://github.com/binarylogic/py-trinnov-altitude/commit/10e38339a0aa7da9811b18ec540f5a3fcea223cc))
+
 ## [3.3.2](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.1...v3.3.2) (2026-05-31)
 
 
