@@ -32,7 +32,7 @@ jobs:
         uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v7
 
       - name: Sync dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
 
       - name: Ruff lint
         run: uv run ruff check .
@@ -64,7 +64,7 @@ jobs:
         uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v7
 
       - name: Sync dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
 
       - name: Pytest
         run: uv run pytest -v

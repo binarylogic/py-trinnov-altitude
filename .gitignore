@@ -91,7 +91,7 @@ ipython_config.py
 
 # uv
 .python-version
-uv.lock
+.uv-cache/
 
 # ruff
 .ruff_cache/
