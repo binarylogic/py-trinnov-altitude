@@ -30,6 +30,13 @@ class CommandRejectedError(TrinnovAltitudeError):
         super().__init__(f"Command rejected: {command} ({reason})")
 
 
+class CommandConvergenceTimeoutError(TrinnovAltitudeError):
+    """Raised when a command does not reach the requested readback state."""
+
+    def __init__(self, description: str, timeout: float):
+        super().__init__(f"Timed out after {timeout:.1f}s waiting for {description}.")
+
+
 class MalformedMacAddressError(TrinnovAltitudeError):
     """Raised when a MAC address has an invalid format."""
 

@@ -8,6 +8,7 @@ from trinnov_altitude import const
 from trinnov_altitude.adapter import AltitudeStateAdapter
 from trinnov_altitude.client import TrinnovAltitudeClient
 from trinnov_altitude.exceptions import (
+    CommandConvergenceTimeoutError,
     CommandRejectedError,
     ConnectionFailedError,
     MalformedMacAddressError,
@@ -512,9 +513,37 @@ async def test_source_set_polls_until_current_profile_converges():
 
     source_commands = transport.sent[3:]
     assert source_commands[0] == "profile 0"
+    assert source_commands.count("profile 0") >= 2
     assert source_commands.count("get_current_profile") >= 2
     assert client.state.current_source_index == 0
     assert client.state.source == "Kaleidescape"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_source_set_raises_when_current_profile_does_not_converge():
+    transport = FakeTransport(incoming_lines=[*synced_lines(source="Apple TV")])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.01,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.sources = {0: "Kaleidescape", 1: "Apple TV"}
+    client.state.current_source_index = 1
+    client.state.source = "Apple TV"
+
+    with pytest.raises(CommandConvergenceTimeoutError, match="source 0"):
+        await client.source_set(0)
+
+    assert "profile 0" in transport.sent
+    assert "get_current_profile" in transport.sent
 
     await client.stop()
 
@@ -541,7 +570,9 @@ async def test_preset_set_queries_current_preset_after_command():
     await set_task
     await asyncio.wait_for(_wait_for(lambda: client.state.preset == "MLP"), timeout=1)
 
-    assert transport.sent[-2:] == ["loadp 1", "get_current_preset"]
+    preset_commands = transport.sent[3:]
+    assert preset_commands[0] == "loadp 1"
+    assert "get_current_preset" in preset_commands
     assert client.state.current_preset_index == 1
     assert client.state.preset == "MLP"
 
@@ -935,8 +966,67 @@ async def test_volume_percentage_set_validates_bounds():
     with pytest.raises(ValueError, match="between 0 and 100"):
         await client.volume_percentage_set(101)
 
-    await client.volume_percentage_set(50)
+    set_task = asyncio.create_task(client.volume_percentage_set(50))
+    await asyncio.sleep(0)
+    transport.push("VOLUME -50.0")
+    await set_task
+
     assert any(line.startswith("volume ") for line in transport.sent)
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_volume_set_polls_until_volume_converges():
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.1,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    client.state.volume = -22.0
+
+    set_task = asyncio.create_task(client.volume_set(-15.0))
+    await asyncio.sleep(0)
+    transport.push("VOLUME -22.0")
+    await asyncio.sleep(0)
+    transport.push("VOLUME -15.0")
+    await set_task
+
+    commands = transport.sent[3:]
+    assert commands[0] == "volume -15.0"
+    assert commands.count("volume -15.0") >= 2
+    assert commands.count("get_current_state") >= 2
+    assert client.state.volume == -15.0
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_volume_set_raises_when_volume_does_not_converge():
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.01,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    client.state.volume = -22.0
+
+    with pytest.raises(CommandConvergenceTimeoutError, match="volume -15.0"):
+        await client.volume_set(-15.0)
+
+    assert "volume -15.0" in transport.sent
+    assert "get_current_state" in transport.sent
 
     await client.stop()
 
