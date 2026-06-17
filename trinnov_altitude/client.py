@@ -485,8 +485,10 @@ class TrinnovAltitudeClient:
         await self._command("get_all_label")
 
     async def preset_set(self, preset_id: int) -> None:
-        await self._command_until(
-            command=lambda: self._command(f"loadp {preset_id}"),
+        if self.state.current_preset_index == preset_id:
+            return
+        await self._command(f"loadp {preset_id}")
+        await self._refresh_until(
             refresh=self.preset_get,
             predicate=lambda: self.state.current_preset_index == preset_id,
             description=f"preset {preset_id} to become active",
@@ -512,6 +514,22 @@ class TrinnovAltitudeClient:
                 await self.source_set(source_id)
                 return
         raise ValueError(f"Unknown source name: {name}")
+
+    async def _refresh_until(
+        self,
+        refresh: Callable[[], Awaitable[None]],
+        predicate: Callable[[], bool],
+        description: str,
+    ) -> None:
+        deadline = time.monotonic() + self.selector_convergence_timeout
+        while True:
+            await refresh()
+            await self._sleep(0)
+            if predicate():
+                return
+            if time.monotonic() >= deadline:
+                raise exceptions.CommandConvergenceTimeoutError(description, self.selector_convergence_timeout)
+            await self._sleep(self.selector_convergence_interval)
 
     async def _command_until(
         self,
