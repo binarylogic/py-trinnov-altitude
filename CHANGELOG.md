@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.4](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.3...v3.3.4) (2026-06-17)
+
+
+### Bug Fixes
+
+* avoid repeated preset load commands ([d4f5d1a](https://github.com/binarylogic/py-trinnov-altitude/commit/d4f5d1a93ddef3662adbe1271a159041b19373c5))
+
 ## [3.3.3](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.2...v3.3.3) (2026-06-15)
 
 
