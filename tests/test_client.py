@@ -572,9 +572,72 @@ async def test_preset_set_queries_current_preset_after_command():
 
     preset_commands = transport.sent[3:]
     assert preset_commands[0] == "loadp 1"
+    assert preset_commands.count("loadp 1") == 1
     assert "get_current_preset" in preset_commands
     assert client.state.current_preset_index == 1
     assert client.state.preset == "MLP"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_preset_set_retries_readback_without_repeating_load_command():
+    transport = FakeTransport(incoming_lines=[*synced_lines(preset="Builtin")])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.1,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.presets = {0: "Builtin", 1: "MLP"}
+    client.state.current_preset_index = 0
+    client.state.preset = "Builtin"
+
+    set_task = asyncio.create_task(client.preset_set(1))
+    await asyncio.sleep(0)
+    transport.push("CURRENT_PRESET 0")
+    await asyncio.sleep(0)
+    transport.push("CURRENT_PRESET 1")
+    await set_task
+
+    preset_commands = transport.sent[3:]
+    assert preset_commands.count("loadp 1") == 1
+    assert preset_commands.count("get_current_preset") >= 2
+    assert client.state.current_preset_index == 1
+    assert client.state.preset == "MLP"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_preset_set_timeout_does_not_repeat_load_command():
+    transport = FakeTransport(incoming_lines=[*synced_lines(preset="Builtin")])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.01,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.presets = {0: "Builtin", 1: "MLP"}
+    client.state.current_preset_index = 0
+    client.state.preset = "Builtin"
+
+    with pytest.raises(CommandConvergenceTimeoutError, match="preset 1"):
+        await client.preset_set(1)
+
+    preset_commands = transport.sent[3:]
+    assert preset_commands.count("loadp 1") == 1
+    assert "get_current_preset" in preset_commands
 
     await client.stop()
 
