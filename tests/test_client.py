@@ -1029,18 +1029,16 @@ async def test_volume_percentage_set_validates_bounds():
     with pytest.raises(ValueError, match="between 0 and 100"):
         await client.volume_percentage_set(101)
 
-    set_task = asyncio.create_task(client.volume_percentage_set(50))
-    await asyncio.sleep(0)
-    transport.push("VOLUME -50.0")
-    await set_task
+    await client.volume_percentage_set(50)
 
-    assert any(line.startswith("volume ") for line in transport.sent)
+    assert "volume -50.0" in transport.sent
+    assert "send volume" in transport.sent
 
     await client.stop()
 
 
 @pytest.mark.asyncio
-async def test_volume_set_polls_until_volume_converges():
+async def test_volume_set_sends_once_and_requests_volume_readback():
     transport = FakeTransport(incoming_lines=synced_lines())
     client = TrinnovAltitudeClient(
         host="unused",
@@ -1054,24 +1052,18 @@ async def test_volume_set_polls_until_volume_converges():
     await client.wait_synced(timeout=1)
     client.state.volume = -22.0
 
-    set_task = asyncio.create_task(client.volume_set(-15.0))
-    await asyncio.sleep(0)
-    transport.push("VOLUME -22.0")
-    await asyncio.sleep(0)
-    transport.push("VOLUME -15.0")
-    await set_task
+    await client.volume_set(-15.0)
 
     commands = transport.sent[3:]
     assert commands[0] == "volume -15.0"
-    assert commands.count("volume -15.0") >= 2
-    assert commands.count("get_current_state") >= 2
-    assert client.state.volume == -15.0
+    assert commands.count("volume -15.0") == 1
+    assert commands.count("send volume") == 1
 
     await client.stop()
 
 
 @pytest.mark.asyncio
-async def test_volume_set_raises_when_volume_does_not_converge():
+async def test_volume_set_does_not_fail_when_readback_lags():
     transport = FakeTransport(incoming_lines=synced_lines())
     client = TrinnovAltitudeClient(
         host="unused",
@@ -1085,11 +1077,11 @@ async def test_volume_set_raises_when_volume_does_not_converge():
     await client.wait_synced(timeout=1)
     client.state.volume = -22.0
 
-    with pytest.raises(CommandConvergenceTimeoutError, match="volume -15.0"):
-        await client.volume_set(-15.0)
+    await client.volume_set(-15.0)
 
-    assert "volume -15.0" in transport.sent
-    assert "get_current_state" in transport.sent
+    commands = transport.sent[3:]
+    assert commands.count("volume -15.0") == 1
+    assert "send volume" in commands
 
     await client.stop()
 

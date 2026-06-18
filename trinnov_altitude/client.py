@@ -564,14 +564,13 @@ class TrinnovAltitudeClient:
     async def state_get_current(self) -> None:
         await self._command("get_current_state")
 
+    async def volume_get(self) -> None:
+        await self._command("send volume")
+
     async def volume_set(self, db: float) -> None:
         target = round(db, 1)
-        await self._command_until(
-            command=lambda: self._command(f"volume {target}"),
-            refresh=self.state_get_current,
-            predicate=lambda: self.state.volume is not None and abs(self.state.volume - target) <= 0.05,
-            description=f"volume {target:.1f} dB to be active",
-        )
+        await self._command(f"volume {target}")
+        await self.volume_get()
 
     async def volume_adjust(self, delta: float) -> None:
         await self._command(f"dvolume {delta}")

@@ -170,6 +170,13 @@ class MockTrinnovAltitudeServer:
                 "DIM 0",
                 "MUTE 0",
             ]
+        if message == "send volume":
+            return [
+                f"VOLUME {self.volume}",
+                "BYPASS 0",
+                "DIM 0",
+                "MUTE 0",
+            ]
         if message == "upmixer":
             return ["UPMIXER auto"]
         return None
