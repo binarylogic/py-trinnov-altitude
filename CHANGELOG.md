@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.5](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.4...v3.3.5) (2026-06-18)
+
+
+### Bug Fixes
+
+* simplify volume command flow ([b555104](https://github.com/binarylogic/py-trinnov-altitude/commit/b555104f9d60af0570a8490a915b04f02c9df76b))
+
 ## [3.3.4](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.3...v3.3.4) (2026-06-17)
 
 
