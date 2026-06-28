@@ -97,6 +97,29 @@ class CloseRaisesNotConnectedTransport(FakeTransport):
         raise NotConnectedError()
 
 
+class ProbeRespondingTransport(FakeTransport):
+    """A transport that answers liveness probes, simulating a healthy idle link."""
+
+    async def send_line(self, line, timeout):
+        await super().send_line(line, timeout)
+        if line == TrinnovAltitudeClient.LIVENESS_PROBE_COMMAND:
+            self.push("VOLUME -40.0")
+
+
+class ProbeSendTimeoutTransport(FakeTransport):
+    """A transport whose liveness probe write times out after bootstrap."""
+
+    def __init__(self, incoming_lines=None, connect_exception=None):
+        super().__init__(incoming_lines=incoming_lines, connect_exception=connect_exception)
+        self.probe_send_timeouts = 0
+
+    async def send_line(self, line, timeout):
+        if line == TrinnovAltitudeClient.LIVENESS_PROBE_COMMAND and self.sent.count(line) >= 1:
+            self.probe_send_timeouts += 1
+            raise asyncio.TimeoutError()
+        await super().send_line(line, timeout)
+
+
 @pytest.mark.asyncio
 async def test_validate_mac():
     with pytest.raises(MalformedMacAddressError):
@@ -778,6 +801,133 @@ async def test_reconnect_stops_when_auto_reconnect_disabled():
     assert client.runtime.control is ControlHealth.UNAVAILABLE
     assert client.runtime.last_error is not None
     assert client.runtime.last_error.kind is ConnectionErrorKind.NOT_CONNECTED
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_liveness_probe_reconnects_on_half_open_connection():
+    # A half-open / wedged link: synced, then silent forever with no EOF or error.
+    # The old behavior looped on read timeouts indefinitely; the liveness probe
+    # must now detect the dead link and reconnect.
+    async def fake_sleep(delay):
+        return None
+
+    first = FakeTransport(incoming_lines=synced_lines(device_id="1"))
+    # The reconnected link answers probes so it stays up (no further reconnects).
+    second = ProbeRespondingTransport(incoming_lines=synced_lines(version="4.3.3", device_id="2"))
+
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([first, second]),
+        read_timeout=0.02,
+        heartbeat_interval=0.05,
+        heartbeat_timeout=0.05,
+        reconnect_initial_backoff=0.0,
+        reconnect_jitter=0.0,
+        sleep_func=fake_sleep,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    await asyncio.wait_for(_wait_for(lambda: client.state.id == "2"), timeout=2)
+
+    # A probe (beyond the bootstrap get_current_state) was attempted on the dead link.
+    assert first.sent.count("get_current_state") >= 2
+    assert second.connect_calls == 1
+    assert client.runtime.transport is TransportState.CONNECTED
+    assert client.runtime.sync is SyncState.SYNCED
+    assert client.runtime.control is ControlHealth.AVAILABLE
+    assert client.state.version == "4.3.3"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_liveness_probe_send_timeout_reconnects():
+    # If the probe write itself times out, the listener must reconnect instead
+    # of exiting and leaving runtime state stuck at "connected".
+    async def fake_sleep(delay):
+        return None
+
+    first = ProbeSendTimeoutTransport(incoming_lines=synced_lines(device_id="1"))
+    second = ProbeRespondingTransport(incoming_lines=synced_lines(version="4.3.3", device_id="2"))
+
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([first, second]),
+        read_timeout=0.02,
+        heartbeat_interval=0.05,
+        heartbeat_timeout=0.05,
+        reconnect_initial_backoff=0.0,
+        reconnect_jitter=0.0,
+        sleep_func=fake_sleep,
+    )
+
+    try:
+        await client.start()
+        await client.wait_synced(timeout=1)
+
+        await asyncio.wait_for(
+            _wait_for(lambda: client.state.id == "2" and client.runtime.sync is SyncState.SYNCED),
+            timeout=2,
+        )
+
+        assert first.probe_send_timeouts == 1
+        assert first.close_calls == 1
+        assert second.connect_calls == 1
+        assert client.runtime.transport is TransportState.CONNECTED
+        assert client.runtime.sync is SyncState.SYNCED
+        assert client.runtime.control is ControlHealth.AVAILABLE
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_liveness_probe_keeps_healthy_idle_link_connected():
+    # An idle but healthy link answers probes and must never be reconnected.
+    transport = ProbeRespondingTransport(incoming_lines=synced_lines(device_id="1"))
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.02,
+        heartbeat_interval=0.05,
+        heartbeat_timeout=0.05,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await asyncio.sleep(0.25)
+
+    assert transport.sent.count("get_current_state") >= 2  # probes were sent
+    assert transport.connect_calls == 1  # but the link never reconnected
+    assert client.connected
+    assert client.state.id == "1"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_liveness_disabled_preserves_legacy_idle_behavior():
+    # With heartbeat disabled, a silent link is left alone (historical behavior).
+    first = FakeTransport(incoming_lines=synced_lines(device_id="1"))
+    second = FakeTransport(incoming_lines=synced_lines(device_id="2"))
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([first, second]),
+        read_timeout=0.02,
+        heartbeat_interval=None,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await asyncio.sleep(0.15)
+
+    assert first.sent.count("get_current_state") == 1  # only the bootstrap call
+    assert second.connect_calls == 0
+    assert client.connected
+    assert client.state.id == "1"
 
     await client.stop()
 
