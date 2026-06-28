@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.6](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.5...v3.3.6) (2026-06-28)
+
+
+### Bug Fixes
+
+* detect and reconnect dead control connections ([8d43e65](https://github.com/binarylogic/py-trinnov-altitude/commit/8d43e65c4e081569bf8127924186726deed3c593))
+
 ## [3.3.5](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.4...v3.3.5) (2026-06-18)
 
 
