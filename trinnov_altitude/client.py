@@ -441,8 +441,8 @@ class TrinnovAltitudeClient:
 
         try:
             await self._send_liveness_probe()
-        except (exceptions.NotConnectedError, OSError):
-            # The socket is already broken; reconnect immediately.
+        except (asyncio.TimeoutError, exceptions.NotConnectedError, OSError):
+            # The probe could not be written; reconnect immediately.
             return True
 
         self._probe_outstanding = True
