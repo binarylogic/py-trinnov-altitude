@@ -56,6 +56,25 @@ asyncio.run(main())
 - `await client.wait_synced()` waits until welcome + catalogs + current indices are observed.
 - `await client.stop()` stops listener and disconnects cleanly.
 
+### Liveness & reconnect
+
+The control connection is a long-lived TCP push session, so a silent read is
+ambiguous: a healthy link is quiet whenever nothing is changing, but a dead link
+(an idle-killed half-open socket, or a processor whose control thread has wedged
+while its TCP stack still ACKs) looks identical. To tell them apart, when the link
+has been quiet for `heartbeat_interval` seconds the client sends a read-only probe
+(`get_current_state`); if no traffic arrives within `heartbeat_timeout`, the link is
+treated as dead and `auto_reconnect` kicks in. `TcpTransport` also enables
+`SO_KEEPALIVE` as an OS-level backstop.
+
+```python
+client = TrinnovAltitudeClient(
+    host="192.168.1.90",
+    heartbeat_interval=20.0,  # seconds of quiet before a liveness probe (None disables)
+    heartbeat_timeout=5.0,    # seconds to wait for the probe response before reconnecting
+)
+```
+
 ## Protocol Semantics
 
 The client parses raw messages first, then normalizes them into canonical state events.

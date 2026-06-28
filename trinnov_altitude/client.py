@@ -66,6 +66,12 @@ class TrinnovAltitudeClient:
     DEFAULT_RECONNECT_JITTER = 0.2
     DEFAULT_SELECTOR_CONVERGENCE_TIMEOUT = 5.0
     DEFAULT_SELECTOR_CONVERGENCE_INTERVAL = 0.25
+    # Liveness: when the control link has been quiet for DEFAULT_HEARTBEAT_INTERVAL
+    # seconds, send a read-only probe; if no traffic arrives within
+    # DEFAULT_HEARTBEAT_TIMEOUT seconds, treat the link as dead and reconnect.
+    DEFAULT_HEARTBEAT_INTERVAL = 20.0
+    DEFAULT_HEARTBEAT_TIMEOUT = 5.0
+    LIVENESS_PROBE_COMMAND = "get_current_state"
 
     VOLUME_MIN = -120.0
     VOLUME_MAX = 20.0
@@ -83,6 +89,8 @@ class TrinnovAltitudeClient:
         reconnect_max_backoff: float = DEFAULT_RECONNECT_MAX_BACKOFF,
         reconnect_jitter: float = DEFAULT_RECONNECT_JITTER,
         auto_reconnect: bool = True,
+        heartbeat_interval: float | None = DEFAULT_HEARTBEAT_INTERVAL,
+        heartbeat_timeout: float = DEFAULT_HEARTBEAT_TIMEOUT,
         logger: logging.Logger | None = None,
         transport_factory: Callable[[], Transport] | None = None,
         sleep_func: Callable[[float], Awaitable[None]] | None = None,
@@ -105,6 +113,8 @@ class TrinnovAltitudeClient:
         self.reconnect_max_backoff = reconnect_max_backoff
         self.reconnect_jitter = reconnect_jitter
         self.auto_reconnect = auto_reconnect
+        self.heartbeat_interval = heartbeat_interval
+        self.heartbeat_timeout = heartbeat_timeout
         self.selector_convergence_timeout = selector_convergence_timeout
         self.selector_convergence_interval = selector_convergence_interval
 
@@ -116,6 +126,7 @@ class TrinnovAltitudeClient:
         self._listen_task: asyncio.Task[None] | None = None
         self._sync_event = asyncio.Event()
         self._stopping = False
+        self._probe_outstanding = False
 
         self._transport_factory = transport_factory or (lambda: TcpTransport(self.host, self.port))
         self._transport: Transport | None = None
@@ -227,6 +238,7 @@ class TrinnovAltitudeClient:
             control=ControlHealth.CONNECTING,
         )
         self._sync_event.clear()
+        self._probe_outstanding = False
         self.state.reset_runtime_values()
 
         self._transport = self._transport_factory()
@@ -264,6 +276,7 @@ class TrinnovAltitudeClient:
         self._transport = None
 
         self._sync_event.clear()
+        self._probe_outstanding = False
         self.state.reset_runtime_values()
         changes: dict[str, object] = {
             "transport": TransportState.DISCONNECTED,
@@ -294,32 +307,44 @@ class TrinnovAltitudeClient:
         try:
             while not self._stopping:
                 try:
-                    line = await self._read_line()
-                    message = parse_message(line)
-                    if isinstance(message, UnknownMessage):
-                        self._record_unknown_message(message.raw_message)
-
-                    self.state.apply(message)
-                    if isinstance(message, MetaPresetLoadedMessage):
-                        await self._refresh_authoritative_selectors()
-
-                    if isinstance(message, ErrorMessage):
-                        self.logger.error("Received error from Trinnov Altitude: %s", message.error)
-
-                    self._resolve_ack_waiter(message)
-                    self._set_runtime(last_message_at=utc_now())
-                    self._emit("received_message", message)
-
-                    self._mark_ready_when_synced()
+                    await self._read_and_dispatch()
                 except asyncio.TimeoutError:
-                    continue
+                    if not await self._handle_read_timeout():
+                        continue
+                    if not await self._reconnect_after(
+                        exceptions.NotConnectedError("Liveness probe timed out; reconnecting.")
+                    ):
+                        break
                 except (exceptions.NotConnectedError, OSError) as err:
-                    await self._disconnect_statefully(err)
-                    reconnected = await self._attempt_reconnect_until_success()
-                    if not reconnected:
+                    if not await self._reconnect_after(err):
                         break
         except asyncio.CancelledError:
             pass
+
+    async def _read_and_dispatch(self) -> None:
+        line = await self._read_line()
+        message = parse_message(line)
+        if isinstance(message, UnknownMessage):
+            self._record_unknown_message(message.raw_message)
+
+        self.state.apply(message)
+        if isinstance(message, MetaPresetLoadedMessage):
+            await self._refresh_authoritative_selectors()
+
+        if isinstance(message, ErrorMessage):
+            self.logger.error("Received error from Trinnov Altitude: %s", message.error)
+
+        self._resolve_ack_waiter(message)
+        self._probe_outstanding = False
+        self._set_runtime(last_message_at=utc_now())
+        self._emit("received_message", message)
+
+        self._mark_ready_when_synced()
+
+    async def _reconnect_after(self, error: Exception) -> bool:
+        """Disconnect statefully, then reconnect. Returns False when the loop should stop."""
+        await self._disconnect_statefully(error)
+        return await self._attempt_reconnect_until_success()
 
     def _record_unknown_message(self, line: str) -> None:
         self._unknown_message_count += 1
@@ -374,7 +399,64 @@ class TrinnovAltitudeClient:
     async def _read_line(self) -> str:
         if self._transport is None:
             raise exceptions.NotConnectedError()
-        return await self._transport.read_line(timeout=self.read_timeout)
+        return await self._transport.read_line(timeout=self._read_line_timeout())
+
+    def _read_line_timeout(self) -> float | None:
+        """Read timeout for the current cycle, tightened so liveness probes fire on time."""
+        if self.heartbeat_interval is None:
+            return self.read_timeout
+        if self._probe_outstanding:
+            # A probe is in flight; only wait for the probe-response window.
+            return self.heartbeat_timeout
+        if self.read_timeout is None:
+            return self.heartbeat_interval
+        return min(self.read_timeout, self.heartbeat_interval)
+
+    async def _handle_read_timeout(self) -> bool:
+        """Decide what a read timeout means.
+
+        Returns ``True`` when the link is dead and the caller should reconnect,
+        ``False`` when the loop should simply keep reading. A read timeout alone
+        is ambiguous: a healthy push connection is silent whenever nothing is
+        changing. To disambiguate we send a cheap read-only probe and require the
+        device to answer; a silent socket (idle-killed half-open, or a wedged
+        control thread) never answers and is reconnected.
+        """
+        if self.heartbeat_interval is None:
+            # Liveness disabled: preserve the historical "keep waiting" behavior.
+            return False
+
+        if self._probe_outstanding:
+            # We already probed and still received nothing within heartbeat_timeout.
+            self._probe_outstanding = False
+            self.logger.warning(
+                "Trinnov Altitude liveness probe got no response within %.1fs; reconnecting.",
+                self.heartbeat_timeout,
+            )
+            return True
+
+        if self._seconds_since_last_message() < self.heartbeat_interval:
+            # The link has been active recently; nothing to do.
+            return False
+
+        try:
+            await self._send_liveness_probe()
+        except (exceptions.NotConnectedError, OSError):
+            # The socket is already broken; reconnect immediately.
+            return True
+
+        self._probe_outstanding = True
+        return False
+
+    async def _send_liveness_probe(self) -> None:
+        """Send a read-only command to elicit traffic and detect a dead link."""
+        await self._command(self.LIVENESS_PROBE_COMMAND)
+
+    def _seconds_since_last_message(self) -> float:
+        reference = self.runtime.last_message_at or self.runtime.last_connected_at
+        if reference is None:
+            return float("inf")
+        return (utc_now() - reference).total_seconds()
 
     async def _command(
         self,
