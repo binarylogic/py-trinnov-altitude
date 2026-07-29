@@ -51,6 +51,8 @@ async def real_client() -> AsyncGenerator[TrinnovAltitudeClient, None]:
         connect_timeout=2.0,
         command_timeout=2.0,
         read_timeout=2.0,
+        heartbeat_interval=None,
+        reconcile_interval=0.25,
     )
 
     await client.start()
