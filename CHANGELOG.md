@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.8](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.7...v3.3.8) (2026-07-29)
+
+
+### Bug Fixes
+
+* preserve commanded off lifecycle state ([#42](https://github.com/binarylogic/py-trinnov-altitude/issues/42)) ([231ff46](https://github.com/binarylogic/py-trinnov-altitude/commit/231ff46bebd5258630045931d9ade72530e93354))
+
 ## [3.3.7](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.6...v3.3.7) (2026-07-29)
 
 
