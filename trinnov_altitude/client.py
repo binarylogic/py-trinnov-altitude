@@ -272,11 +272,16 @@ class TrinnovAltitudeClient:
         self.state.dim = False
         self.state.mute = False
 
+        connected_changes: dict[str, object] = {
+            "transport": TransportState.CONNECTED,
+            "sync": SyncState.SYNCING,
+            "control": ControlHealth.CONNECTING,
+            "last_connected_at": utc_now(),
+        }
+        if self.runtime.power is PowerState.OFF:
+            connected_changes["power"] = PowerState.WAKING
         self._set_runtime(
-            transport=TransportState.CONNECTED,
-            sync=SyncState.SYNCING,
-            control=ControlHealth.CONNECTING,
-            last_connected_at=utc_now(),
+            **connected_changes,
         )
 
         self._emit("connected", None)
@@ -558,7 +563,7 @@ class TrinnovAltitudeClient:
             "sync": SyncState.SYNCED,
             "control": ControlHealth.AVAILABLE,
         }
-        if self.runtime.power is not PowerState.READY:
+        if self.runtime.power not in {PowerState.OFF, PowerState.READY}:
             changes["power"] = PowerState.READY
         self._set_runtime(**changes)
         self._sync_event.set()

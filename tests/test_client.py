@@ -1083,6 +1083,50 @@ async def test_power_on_does_not_downgrade_synced_connection(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_power_off_survives_trailing_messages_and_disconnect():
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        auto_reconnect=False,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await client.power_off()
+
+    transport.push("VOLUME -41.0")
+    await asyncio.wait_for(_wait_for(lambda: client.state.volume == -41.0), timeout=1)
+
+    assert client.runtime.power is PowerState.OFF
+
+    transport.push(None)
+    await asyncio.wait_for(_wait_for(lambda: not client.connected), timeout=1)
+
+    assert client.runtime.power is PowerState.OFF
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_successful_reconnect_moves_commanded_off_to_ready():
+    first = FakeTransport(incoming_lines=synced_lines() + [None])
+    second = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([first, second]),
+        reconnect_initial_backoff=0.0,
+        reconnect_jitter=0.0,
+    )
+    client.runtime = client.runtime.with_changes(power=PowerState.OFF)
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    assert client.runtime.power is PowerState.READY
+    await client.stop()
+
+
+@pytest.mark.asyncio
 async def test_adapter_callback_emits_runtime_deltas():
     transport = FakeTransport(incoming_lines=synced_lines())
     client = TrinnovAltitudeClient(
