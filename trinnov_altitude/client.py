@@ -66,6 +66,7 @@ class TrinnovAltitudeClient:
     DEFAULT_RECONNECT_JITTER = 0.2
     DEFAULT_SELECTOR_CONVERGENCE_TIMEOUT = 5.0
     DEFAULT_SELECTOR_CONVERGENCE_INTERVAL = 0.25
+    DEFAULT_RECONCILE_INTERVAL = 30.0
     # Liveness: when the control link has been quiet for DEFAULT_HEARTBEAT_INTERVAL
     # seconds, send a read-only probe; if no traffic arrives within
     # DEFAULT_HEARTBEAT_TIMEOUT seconds, treat the link as dead and reconnect.
@@ -91,6 +92,7 @@ class TrinnovAltitudeClient:
         auto_reconnect: bool = True,
         heartbeat_interval: float | None = DEFAULT_HEARTBEAT_INTERVAL,
         heartbeat_timeout: float = DEFAULT_HEARTBEAT_TIMEOUT,
+        reconcile_interval: float | None = DEFAULT_RECONCILE_INTERVAL,
         logger: logging.Logger | None = None,
         transport_factory: Callable[[], Transport] | None = None,
         sleep_func: Callable[[float], Awaitable[None]] | None = None,
@@ -115,6 +117,9 @@ class TrinnovAltitudeClient:
         self.auto_reconnect = auto_reconnect
         self.heartbeat_interval = heartbeat_interval
         self.heartbeat_timeout = heartbeat_timeout
+        if reconcile_interval is not None and reconcile_interval <= 0:
+            raise ValueError("reconcile_interval must be positive or None")
+        self.reconcile_interval = reconcile_interval
         self.selector_convergence_timeout = selector_convergence_timeout
         self.selector_convergence_interval = selector_convergence_interval
 
@@ -124,6 +129,7 @@ class TrinnovAltitudeClient:
 
         self._callbacks: set[Callback] = set()
         self._listen_task: asyncio.Task[None] | None = None
+        self._reconcile_task: asyncio.Task[None] | None = None
         self._sync_event = asyncio.Event()
         self._stopping = False
         self._probe_outstanding = False
@@ -191,14 +197,22 @@ class TrinnovAltitudeClient:
 
     async def start(self) -> None:
         if self._listen_task is not None and not self._listen_task.done():
+            self._ensure_reconcile_task()
             return
 
         self._stopping = False
         await self._connect_and_bootstrap()
         self._listen_task = asyncio.create_task(self._listen_loop())
+        self._ensure_reconcile_task()
 
     async def stop(self) -> None:
         self._stopping = True
+
+        if self._reconcile_task is not None:
+            self._reconcile_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._reconcile_task
+            self._reconcile_task = None
 
         if self._listen_task is not None:
             self._listen_task.cancel()
@@ -320,6 +334,28 @@ class TrinnovAltitudeClient:
                         break
         except asyncio.CancelledError:
             pass
+
+    def _ensure_reconcile_task(self) -> None:
+        if self.reconcile_interval is None:
+            return
+        if self._reconcile_task is not None and not self._reconcile_task.done():
+            return
+        self._reconcile_task = asyncio.create_task(self._reconcile_loop())
+
+    async def _reconcile_loop(self) -> None:
+        """Periodically refresh authoritative state, independent of push traffic."""
+        if self.reconcile_interval is None:
+            return
+        while not self._stopping:
+            await asyncio.sleep(self.reconcile_interval)
+            if self._stopping:
+                return
+            if not self.connected:
+                continue
+            try:
+                await self.state_get_current()
+            except (asyncio.TimeoutError, exceptions.NotConnectedError, OSError) as err:
+                self.logger.debug("Periodic Trinnov state reconciliation failed: %s", err)
 
     async def _read_and_dispatch(self) -> None:
         line = await self._read_line()

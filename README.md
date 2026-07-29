@@ -75,6 +75,21 @@ client = TrinnovAltitudeClient(
 )
 ```
 
+### State reconciliation
+
+Push messages remain the fast path for state updates. As a backstop for an
+individual dropped notification, the client also requests the processor's
+current state every `reconcile_interval` seconds. This schedule is independent
+of ordinary push traffic, so unrelated messages cannot leave one cached field
+stale indefinitely.
+
+```python
+client = TrinnovAltitudeClient(
+    host="192.168.1.90",
+    reconcile_interval=30.0,  # None disables periodic reconciliation
+)
+```
+
 ## Protocol Semantics
 
 The client parses raw messages first, then normalizes them into canonical state events.

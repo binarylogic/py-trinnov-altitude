@@ -120,6 +120,30 @@ class ProbeSendTimeoutTransport(FakeTransport):
         await super().send_line(line, timeout)
 
 
+class ReconcileRespondingTransport(FakeTransport):
+    """A transport that reports an external source change on reconciliation."""
+
+    async def send_line(self, line, timeout):
+        await super().send_line(line, timeout)
+        if line == "get_current_state" and self.sent.count(line) >= 2:
+            self.push("CURRENT_PROFILE 1")
+
+
+class ReconcileSendFailureTransport(FakeTransport):
+    """A transport with one transient reconciliation write failure."""
+
+    def __init__(self, incoming_lines=None, connect_exception=None):
+        super().__init__(incoming_lines=incoming_lines, connect_exception=connect_exception)
+        self.reconcile_attempts = 0
+
+    async def send_line(self, line, timeout):
+        if line == "get_current_state" and self.sent.count(line) >= 1:
+            self.reconcile_attempts += 1
+            if self.reconcile_attempts == 1:
+                raise NotConnectedError("transient reconcile failure")
+        await super().send_line(line, timeout)
+
+
 @pytest.mark.asyncio
 async def test_validate_mac():
     with pytest.raises(MalformedMacAddressError):
@@ -138,17 +162,20 @@ async def test_start_and_stop_are_idempotent():
     )
 
     await client.start()
+    reconcile_task = client._reconcile_task
     await client.start()
     await client.wait_synced(timeout=1)
 
     assert transport.connect_calls == 1
     assert "get_current_state" in transport.sent
     assert "upmixer" in transport.sent
+    assert client._reconcile_task is reconcile_task
 
     await client.stop()
     await client.stop()
 
     assert transport.close_calls == 1
+    assert client._reconcile_task is None
 
 
 @pytest.mark.asyncio
@@ -930,6 +957,68 @@ async def test_liveness_disabled_preserves_legacy_idle_behavior():
     assert client.state.id == "1"
 
     await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_periodic_reconcile_repairs_missed_source_update_during_traffic():
+    transport = ReconcileRespondingTransport(
+        incoming_lines=[
+            *synced_lines(source="Apple TV"),
+            "PROFILE 1: Kaleidescape",
+        ]
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        heartbeat_interval=None,
+        reconcile_interval=0.02,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    assert client.state.source == "Apple TV"
+
+    async def send_unrelated_traffic() -> None:
+        deadline = asyncio.get_running_loop().time() + 0.1
+        while asyncio.get_running_loop().time() < deadline:
+            transport.push("VOLUME -40.0")
+            await asyncio.sleep(0.005)
+
+    chatter = asyncio.create_task(send_unrelated_traffic())
+    await asyncio.wait_for(_wait_for(lambda: client.state.source == "Kaleidescape"), timeout=1)
+    await chatter
+
+    assert transport.sent.count("get_current_state") >= 2
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_periodic_reconcile_continues_after_transient_send_failure():
+    transport = ReconcileSendFailureTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        heartbeat_interval=None,
+        reconcile_interval=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await asyncio.wait_for(_wait_for(lambda: transport.reconcile_attempts >= 2), timeout=1)
+
+    assert client._reconcile_task is not None
+    assert not client._reconcile_task.done()
+    assert transport.sent.count("get_current_state") >= 2
+    await client.stop()
+
+
+def test_reconcile_interval_must_be_positive_or_disabled():
+    with pytest.raises(ValueError, match="reconcile_interval"):
+        TrinnovAltitudeClient(host="unused", reconcile_interval=0)
+
+    client = TrinnovAltitudeClient(host="unused", reconcile_interval=None)
+    assert client.reconcile_interval is None
 
 
 @pytest.mark.asyncio
