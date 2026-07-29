@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.7](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.6...v3.3.7) (2026-07-29)
+
+
+### Bug Fixes
+
+* reconcile state independently of push traffic ([#40](https://github.com/binarylogic/py-trinnov-altitude/issues/40)) ([7c928bc](https://github.com/binarylogic/py-trinnov-altitude/commit/7c928bc675ec435697fbbc08b7b6ca09cd3e5a9c))
+
 ## [3.3.6](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.5...v3.3.6) (2026-06-28)
 
 
