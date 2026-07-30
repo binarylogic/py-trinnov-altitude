@@ -1457,6 +1457,30 @@ async def test_unknown_messages_are_counted_and_sampled():
     await client.stop()
 
 
+@pytest.mark.asyncio
+async def test_unknown_message_credentials_are_redacted(caplog):
+    secret = "do-not-log-this"
+    transport = FakeTransport(
+        incoming_lines=synced_lines() + [f'NETSTATUS WLAN AP_PASSWORD "{secret}" WPA_PSK unquoted-secret']
+    )
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    await asyncio.sleep(0.01)
+
+    sample = client.recent_unknown_messages[-1]
+    assert sample == ('NETSTATUS WLAN AP_PASSWORD "<redacted>" WPA_PSK "<redacted>"')
+    assert secret not in caplog.text
+    assert "unquoted-secret" not in caplog.text
+
+    await client.stop()
+
+
 async def _wait_for(predicate):
     if predicate():
         return

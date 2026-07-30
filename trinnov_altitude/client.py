@@ -41,6 +41,12 @@ Callback = Callable[[str, Message | None], None]
 AdapterCallback = Callable[[AltitudeSnapshot, list[StateDelta], list[AdapterEvent]], None]
 RandomFunc = Callable[[], float]
 
+_SENSITIVE_PROTOCOL_FIELD = re.compile(
+    r"\b(?P<key>[A-Z0-9_]*(?:PASSWORD|PASSWD|PASSPHRASE|TOKEN|SECRET|API_KEY|PSK))"
+    r'(?P<separator>\s+)(?P<value>"[^"]*"|\S+)',
+    re.IGNORECASE,
+)
+
 
 class Transport(Protocol):
     @property
@@ -388,6 +394,7 @@ class TrinnovAltitudeClient:
         return await self._attempt_reconnect_until_success()
 
     def _record_unknown_message(self, line: str) -> None:
+        line = _redact_sensitive_protocol_fields(line)
         self._unknown_message_count += 1
         self._unknown_message_samples.append(line)
         if self._unknown_message_count <= 5:
@@ -834,3 +841,11 @@ def _connection_error_info(error: Exception) -> ConnectionErrorInfo:
     else:
         kind = ConnectionErrorKind.UNKNOWN
     return ConnectionErrorInfo(kind=kind, message=str(error), at=utc_now())
+
+
+def _redact_sensitive_protocol_fields(line: str) -> str:
+    """Redact credential-like fields before sampling or logging unknown messages."""
+    return _SENSITIVE_PROTOCOL_FIELD.sub(
+        lambda match: f'{match["key"]}{match["separator"]}"<redacted>"',
+        line,
+    )
