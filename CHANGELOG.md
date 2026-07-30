@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.9](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.8...v3.3.9) (2026-07-30)
+
+
+### Bug Fixes
+
+* redact credentials in unknown messages ([#44](https://github.com/binarylogic/py-trinnov-altitude/issues/44)) ([6287893](https://github.com/binarylogic/py-trinnov-altitude/commit/628789354f854127528dd38ef6213d411864788a))
+
 ## [3.3.8](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.7...v3.3.8) (2026-07-29)
 
 
