@@ -97,6 +97,16 @@ class CloseRaisesNotConnectedTransport(FakeTransport):
         raise NotConnectedError()
 
 
+class HandshakeResetTransport(FakeTransport):
+    """A transport whose connect() succeeds but whose bootstrap handshake commands
+    fail as if the peer reset the connection mid-handshake (e.g. a device waking
+    from standby that accepts the TCP connection before its control service is
+    ready to answer)."""
+
+    async def send_line(self, line, timeout):
+        raise NotConnectedError()
+
+
 class ProbeRespondingTransport(FakeTransport):
     """A transport that answers liveness probes, simulating a healthy idle link."""
 
@@ -803,6 +813,85 @@ async def test_reconnect_uses_backoff_until_success():
     assert client.runtime.power is PowerState.READY
     assert client.runtime.last_error is not None
     assert client.runtime.last_error.kind is ConnectionErrorKind.CONNECTION_FAILED
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_survives_mid_handshake_disconnect():
+    """A connection reset during the post-connect handshake (id/get_current_state/
+    upmixer) must be treated like any other connection failure and retried, not
+    left to kill the listen loop outright."""
+    first = FakeTransport(incoming_lines=synced_lines(device_id="1") + [None])
+    reset_mid_handshake = HandshakeResetTransport()
+    second = FakeTransport(incoming_lines=synced_lines(version="4.3.3", device_id="2", preset="Movie", source="Blu-ray"))
+
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([first, reset_mid_handshake, second]),
+        read_timeout=0.01,
+        reconnect_initial_backoff=0.01,
+        reconnect_max_backoff=0.02,
+        reconnect_jitter=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    await asyncio.wait_for(_wait_for(lambda: client.state.id == "2"), timeout=1)
+
+    assert client.state.version == "4.3.3"
+    assert client.runtime.transport is TransportState.CONNECTED
+    assert client.runtime.sync is SyncState.SYNCED
+    assert client.runtime.control is ControlHealth.AVAILABLE
+    assert client.runtime.power is PowerState.READY
+
+    # The listen task must still be alive and functioning, not dead from an
+    # unhandled exception raised during the failed handshake attempt.
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_mid_handshake_disconnect_after_power_off_does_not_strand_waking():
+    """After an explicit power_off, a reconnect attempt that connects but then
+    fails during the handshake must leave power at OFF, not stuck at WAKING
+    (WAKING must only be promoted once a bootstrap attempt fully succeeds)."""
+    first = FakeTransport(incoming_lines=synced_lines(device_id="1"))
+    reset_mid_handshake = HandshakeResetTransport()
+    second = FakeTransport(incoming_lines=synced_lines(version="4.3.3", device_id="2"))
+
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([first, reset_mid_handshake, second]),
+        read_timeout=0.01,
+        reconnect_initial_backoff=0.01,
+        reconnect_max_backoff=0.02,
+        reconnect_jitter=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    assert client.runtime.power is PowerState.READY
+
+    await client.power_off()
+    assert client.runtime.power is PowerState.OFF
+
+    # Simulate the device dropping the connection right after power_off, now
+    # that the explicit power_off above has deterministically already landed.
+    # The listen loop then reconnects via `reset_mid_handshake` (connects,
+    # then fails the handshake) before finally succeeding via `second`.
+    first.push(None)
+    await asyncio.wait_for(_wait_for(lambda: reset_mid_handshake.connect_calls >= 1), timeout=1)
+    await asyncio.wait_for(
+        _wait_for(lambda: client.runtime.transport is TransportState.DISCONNECTED),
+        timeout=1,
+    )
+    assert client.runtime.power is PowerState.OFF, (
+        "power must not get stranded at WAKING when the handshake fails right after an explicit power_off"
+    )
+
+    await asyncio.wait_for(_wait_for(lambda: client.state.id == "2"), timeout=1)
+    assert client.runtime.power is PowerState.READY
 
     await client.stop()
 

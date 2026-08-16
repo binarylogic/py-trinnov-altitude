@@ -278,23 +278,39 @@ class TrinnovAltitudeClient:
         self.state.dim = False
         self.state.mute = False
 
-        connected_changes: dict[str, object] = {
-            "transport": TransportState.CONNECTED,
-            "sync": SyncState.SYNCING,
-            "control": ControlHealth.CONNECTING,
-            "last_connected_at": utc_now(),
-        }
-        if self.runtime.power is PowerState.OFF:
-            connected_changes["power"] = PowerState.WAKING
         self._set_runtime(
-            **connected_changes,
+            transport=TransportState.CONNECTED,
+            sync=SyncState.SYNCING,
+            control=ControlHealth.CONNECTING,
+            last_connected_at=utc_now(),
         )
 
         self._emit("connected", None)
 
-        await self._command(f"id {self.client_id}")
-        await self._command("get_current_state")
-        await self._command("upmixer")
+        try:
+            await self._command(f"id {self.client_id}")
+            await self._command("get_current_state")
+            await self._command("upmixer")
+        except (exceptions.NotConnectedError, OSError, TimeoutError) as err:
+            transport, self._transport = self._transport, None
+            self._set_runtime(
+                transport=TransportState.DISCONNECTED,
+                sync=SyncState.UNSYNCED,
+                control=ControlHealth.UNAVAILABLE,
+                last_error=_connection_error_info(err),
+            )
+            if transport is not None:
+                with suppress(OSError, exceptions.NotConnectedError):
+                    await transport.close()
+            self._emit("disconnected", None)
+            raise exceptions.ConnectionFailedError(err) from err
+
+        # Only now that the handshake has actually gone through do we know the
+        # connect attempt was real and not a spurious accept-then-drop (e.g. the
+        # peer closing mid-boot). Promoting OFF -> WAKING any earlier can strand
+        # power in WAKING forever if the handshake above fails.
+        if self.runtime.power is PowerState.OFF:
+            self._set_runtime(power=PowerState.WAKING)
 
     async def _disconnect_statefully(self, error: Exception | None = None) -> None:
         transport = self._transport
@@ -601,8 +617,12 @@ class TrinnovAltitudeClient:
         self._set_runtime(power=PowerState.WAKING)
         send_magic_packet(self.mac)
 
-    async def power_off(self) -> None:
-        await self._command("power_off_SECURED_FHZMCH48FE")
+    async def power_off(self, wait_for_ack: bool = False) -> None:
+        await self._command(
+            "power_off_SECURED_FHZMCH48FE",
+            wait_for_ack=wait_for_ack,
+            ack_timeout=self.command_timeout if wait_for_ack else None,
+        )
         self._set_runtime(power=PowerState.OFF)
 
     async def preset_get(self) -> None:
