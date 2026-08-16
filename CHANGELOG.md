@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.10](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.9...v3.3.10) (2026-08-16)
+
+
+### Bug Fixes
+
+* retry bootstrap connection failures ([#48](https://github.com/binarylogic/py-trinnov-altitude/issues/48)) ([127123c](https://github.com/binarylogic/py-trinnov-altitude/commit/127123cd43bea4fc2846ca1c0d2447e8436978bb))
+
 ## [3.3.9](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.8...v3.3.9) (2026-07-30)
 
 
