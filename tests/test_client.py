@@ -97,6 +97,20 @@ class CloseRaisesNotConnectedTransport(FakeTransport):
         raise NotConnectedError()
 
 
+class BootstrapFailureTransport(FakeTransport):
+    """A transport that fails while bootstrap commands are being written."""
+
+    def __init__(self, fail_on, error):
+        super().__init__()
+        self._fail_on = fail_on
+        self._error = error
+
+    async def send_line(self, line, timeout):
+        if line == self._fail_on:
+            raise self._error
+        await super().send_line(line, timeout)
+
+
 class ProbeRespondingTransport(FakeTransport):
     """A transport that answers liveness probes, simulating a healthy idle link."""
 
@@ -804,6 +818,95 @@ async def test_reconnect_uses_backoff_until_success():
     assert client.runtime.last_error is not None
     assert client.runtime.last_error.kind is ConnectionErrorKind.CONNECTION_FAILED
 
+    await client.stop()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failed_command",
+    ["id py-trinnov-altitude", "get_current_state", "upmixer"],
+)
+async def test_bootstrap_failure_is_clean_and_retryable(failed_command):
+    failed = BootstrapFailureTransport(
+        fail_on=failed_command,
+        error=NotConnectedError("peer reset during bootstrap"),
+    )
+    recovered = FakeTransport(incoming_lines=synced_lines(device_id="2"))
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([failed, recovered]),
+        auto_reconnect=False,
+    )
+
+    with pytest.raises(ConnectionFailedError):
+        await client.start()
+
+    assert failed.close_calls == 1
+    assert client.connected is False
+    assert client.runtime.transport is TransportState.DISCONNECTED
+    assert client.runtime.sync is SyncState.UNSYNCED
+    assert client.runtime.control is ControlHealth.UNAVAILABLE
+    assert client._listen_task is None
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    assert client.state.id == "2"
+    assert client.runtime.transport is TransportState.CONNECTED
+    assert client.runtime.sync is SyncState.SYNCED
+    assert client.runtime.control is ControlHealth.AVAILABLE
+    await client.stop()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [NotConnectedError("reset"), OSError("broken pipe"), TimeoutError()],
+)
+async def test_bootstrap_normalizes_expected_connection_failures(error):
+    failed = BootstrapFailureTransport(fail_on="get_current_state", error=error)
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([failed]),
+    )
+
+    with pytest.raises(ConnectionFailedError) as raised:
+        await client.start()
+
+    assert raised.value.__cause__ is error
+    assert failed.close_calls == 1
+    assert client.connected is False
+
+
+@pytest.mark.asyncio
+async def test_reconnect_survives_bootstrap_failure_without_replacing_listener():
+    first = FakeTransport(incoming_lines=synced_lines(device_id="1") + [None])
+    failed = BootstrapFailureTransport(
+        fail_on="get_current_state",
+        error=NotConnectedError("peer reset during bootstrap"),
+    )
+    recovered = FakeTransport(incoming_lines=synced_lines(device_id="2"))
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([first, failed, recovered]),
+        read_timeout=0.01,
+        reconnect_initial_backoff=0.01,
+        reconnect_max_backoff=0.01,
+        reconnect_jitter=0.0,
+    )
+
+    await client.start()
+    listener = client._listen_task
+    await asyncio.wait_for(_wait_for(lambda: client.state.id == "2"), timeout=1)
+
+    assert failed.close_calls == 1
+    assert client._listen_task is listener
+    assert listener is not None
+    assert not listener.done()
+    assert client.runtime.transport is TransportState.CONNECTED
+    assert client.runtime.sync is SyncState.SYNCED
+    assert client.runtime.control is ControlHealth.AVAILABLE
+    assert client.runtime.power is PowerState.READY
     await client.stop()
 
 
