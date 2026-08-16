@@ -292,9 +292,13 @@ class TrinnovAltitudeClient:
 
         self._emit("connected", None)
 
-        await self._command(f"id {self.client_id}")
-        await self._command("get_current_state")
-        await self._command("upmixer")
+        try:
+            await self._command(f"id {self.client_id}")
+            await self._command("get_current_state")
+            await self._command("upmixer")
+        except (exceptions.NotConnectedError, OSError, TimeoutError) as err:
+            await self._disconnect_statefully(err)
+            raise exceptions.ConnectionFailedError(err) from err
 
     async def _disconnect_statefully(self, error: Exception | None = None) -> None:
         transport = self._transport
