@@ -78,6 +78,7 @@ class TrinnovAltitudeClient:
     # DEFAULT_HEARTBEAT_TIMEOUT seconds, treat the link as dead and reconnect.
     DEFAULT_HEARTBEAT_INTERVAL = 20.0
     DEFAULT_HEARTBEAT_TIMEOUT = 5.0
+    CATALOG_IDLE_TIMEOUT = 0.25
     LIVENESS_PROBE_COMMAND = "get_current_state"
 
     VOLUME_MIN = -120.0
@@ -179,7 +180,7 @@ class TrinnovAltitudeClient:
         def wrapped(event: str, message: Message | None) -> None:
             if event == "received_message" and message is None:
                 return
-            if event not in {"received_message", "runtime_changed", "connected", "disconnected"}:
+            if event not in {"received_message", "state_changed", "runtime_changed", "connected", "disconnected"}:
                 return
 
             initial = adapter.last_snapshot is None
@@ -338,6 +339,10 @@ class TrinnovAltitudeClient:
                 try:
                     await self._read_and_dispatch()
                 except asyncio.TimeoutError:
+                    if self.state.commit_pending_catalogs():
+                        self._emit("state_changed", None)
+                        self._mark_ready_when_synced()
+                        continue
                     if not await self._handle_read_timeout():
                         continue
                     if not await self._reconnect_after(
@@ -456,13 +461,18 @@ class TrinnovAltitudeClient:
     def _read_line_timeout(self) -> float | None:
         """Read timeout for the current cycle, tightened so liveness probes fire on time."""
         if self.heartbeat_interval is None:
-            return self.read_timeout
-        if self._probe_outstanding:
+            timeout = self.read_timeout
+        elif self._probe_outstanding:
             # A probe is in flight; only wait for the probe-response window.
-            return self.heartbeat_timeout
-        if self.read_timeout is None:
-            return self.heartbeat_interval
-        return min(self.read_timeout, self.heartbeat_interval)
+            timeout = self.heartbeat_timeout
+        elif self.read_timeout is None:
+            timeout = self.heartbeat_interval
+        else:
+            timeout = min(self.read_timeout, self.heartbeat_interval)
+
+        if self.state.has_pending_catalogs:
+            return self.CATALOG_IDLE_TIMEOUT if timeout is None else min(timeout, self.CATALOG_IDLE_TIMEOUT)
+        return timeout
 
     async def _handle_read_timeout(self) -> bool:
         """Decide what a read timeout means.

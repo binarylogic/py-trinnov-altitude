@@ -28,7 +28,13 @@ from trinnov_altitude.canonical import (
     UpsertSourceEvent,
 )
 from trinnov_altitude.normalizer import normalize_message, select_profile
-from trinnov_altitude.protocol import Message
+from trinnov_altitude.protocol import (
+    Message,
+    PresetMessage,
+    PresetsClearMessage,
+    SourceMessage,
+    SourcesClearMessage,
+)
 
 GENERIC_SOURCE_NAME_PATTERN = re.compile(r"^source\s+\d+$", re.IGNORECASE)
 
@@ -59,6 +65,9 @@ class AltitudeState:
     source_format: str | None = None
     sources: dict[int, str] = field(default_factory=dict)
     _source_label_quality: dict[int, int] = field(default_factory=dict)
+    _pending_presets: dict[int, str] | None = field(default=None, init=False, repr=False, compare=False)
+    _pending_sources: dict[int, str] | None = field(default=None, init=False, repr=False, compare=False)
+    _pending_source_label_quality: dict[int, int] | None = field(default=None, init=False, repr=False, compare=False)
     active_upmixer: str | None = None
     upmixer: str | None = None
     version: str | None = None
@@ -89,6 +98,9 @@ class AltitudeState:
         self.source_format = None
         self.sources = {}
         self._source_label_quality = {}
+        self._pending_presets = None
+        self._pending_sources = None
+        self._pending_source_label_quality = None
         self.active_upmixer = None
         self.upmixer = None
         self.version = None
@@ -106,9 +118,49 @@ class AltitudeState:
 
     def apply(self, message: Message) -> None:
         """Normalize one raw message and reduce it into state."""
+        self._commit_completed_catalogs(message)
         profile = select_profile(self.features)
         for event in normalize_message(message, profile):
             self._apply_event(event)
+
+    @property
+    def has_pending_catalogs(self) -> bool:
+        """Return whether a catalog refresh is still being assembled."""
+        return self._pending_presets is not None or self._pending_sources is not None
+
+    def commit_pending_catalogs(self) -> bool:
+        """Publish complete staged catalogs after the protocol stream goes idle."""
+        committed = False
+        if self._pending_presets is not None:
+            self._commit_pending_presets()
+            committed = True
+        if self._pending_sources is not None:
+            self._commit_pending_sources()
+            committed = True
+        return committed
+
+    def _commit_completed_catalogs(self, message: Message) -> None:
+        if self._pending_presets is not None and not isinstance(message, (PresetsClearMessage, PresetMessage)):
+            self._commit_pending_presets()
+
+        if self._pending_sources is not None and not isinstance(message, (SourcesClearMessage, SourceMessage)):
+            self._commit_pending_sources()
+
+    def _commit_pending_presets(self) -> None:
+        if self._pending_presets is None:
+            return
+        self.presets = self._pending_presets
+        self._pending_presets = None
+        self.preset = self.presets.get(self.current_preset_index) if self.current_preset_index is not None else None
+
+    def _commit_pending_sources(self) -> None:
+        if self._pending_sources is None:
+            return
+        self.sources = self._pending_sources
+        self._source_label_quality = self._pending_source_label_quality or {}
+        self._pending_sources = None
+        self._pending_source_label_quality = None
+        self.source = self.sources.get(self.current_source_index) if self.current_source_index is not None else None
 
     def _apply_event(self, event: CanonicalEvent) -> None:  # noqa: C901
         if isinstance(event, SetAudiosyncEvent):
@@ -141,35 +193,38 @@ class AltitudeState:
         elif isinstance(event, SetUpmixerModeEvent):
             self.upmixer = event.mode
         elif isinstance(event, UpsertPresetEvent):
-            self.presets[event.index] = event.name
+            presets = self._pending_presets if self._pending_presets is not None else self.presets
+            presets[event.index] = event.name
             self._seen_preset_catalog = True
-            if self.current_preset_index == event.index:
+            if self._pending_presets is None and self.current_preset_index == event.index:
                 self.preset = event.name
         elif isinstance(event, ClearPresetsEvent):
-            self.presets = {}
+            self._pending_presets = {}
             self._seen_preset_catalog = True
-            if self.current_preset_index is not None:
-                self.preset = None
         elif isinstance(event, SetMuteEvent):
             self.mute = event.state
         elif isinstance(event, UpsertSourceEvent):
-            existing = self.sources.get(event.index)
-            existing_quality = self._source_label_quality.get(event.index, -1)
+            sources = self._pending_sources if self._pending_sources is not None else self.sources
+            label_quality = (
+                self._pending_source_label_quality
+                if self._pending_source_label_quality is not None
+                else self._source_label_quality
+            )
+            existing = sources.get(event.index)
+            existing_quality = label_quality.get(event.index, -1)
             should_replace = event.quality > existing_quality
             if event.quality == existing_quality:
                 should_replace = _should_replace_source_name(existing, event.name)
             if should_replace:
-                self.sources[event.index] = event.name
-                self._source_label_quality[event.index] = event.quality
+                sources[event.index] = event.name
+                label_quality[event.index] = event.quality
             self._seen_source_catalog = True
-            if self.current_source_index == event.index:
-                self.source = self.sources.get(event.index)
+            if self._pending_sources is None and self.current_source_index == event.index:
+                self.source = sources.get(event.index)
         elif isinstance(event, ClearSourcesEvent):
-            self.sources = {}
-            self._source_label_quality = {}
+            self._pending_sources = {}
+            self._pending_source_label_quality = {}
             self._seen_source_catalog = True
-            if self.current_source_index is not None:
-                self.source = None
         elif isinstance(event, SourcesChangedEvent):
             # Informational marker emitted by some firmware variants.
             pass
@@ -185,7 +240,8 @@ class AltitudeState:
     @property
     def synced(self) -> bool:
         return (
-            self._seen_welcome
+            not self.has_pending_catalogs
+            and self._seen_welcome
             and self._seen_current_preset
             and self._seen_current_source
             and (self._seen_preset_catalog or self.current_preset_index is not None)
