@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.11](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.10...v3.3.11) (2026-08-18)
+
+
+### Bug Fixes
+
+* publish catalog refreshes atomically ([#52](https://github.com/binarylogic/py-trinnov-altitude/issues/52)) ([13b3a86](https://github.com/binarylogic/py-trinnov-altitude/commit/13b3a86a9c2485ca09a2188a03790d5f8d371e6b))
+
 ## [3.3.10](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.9...v3.3.10) (2026-08-16)
 
 
