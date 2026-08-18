@@ -1256,6 +1256,43 @@ async def test_adapter_callback_emits_runtime_deltas():
 
 
 @pytest.mark.asyncio
+async def test_adapter_callback_never_exposes_partial_catalog_refreshes():
+    transport = FakeTransport(incoming_lines=synced_lines(preset="Action", source="Apple TV"))
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        heartbeat_interval=None,
+        reconcile_interval=None,
+    )
+    adapter = AltitudeStateAdapter()
+    snapshots = []
+    client.register_adapter_callback(adapter, lambda snapshot, _deltas, _events: snapshots.append(snapshot))
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+    stable = (client.snapshot.preset, client.snapshot.presets, client.snapshot.source, client.snapshot.sources)
+    snapshots.clear()
+
+    for line in (
+        "LABELS_CLEAR",
+        "LABEL 0: Action",
+        "CURRENT_PRESET 0",
+        "PROFILES_CLEAR",
+        "PROFILE 0: Apple TV",
+        "BASS_MANAGEMENT 1",
+    ):
+        transport.push(line)
+
+    await asyncio.sleep(0.05)
+
+    assert snapshots
+    assert {(snapshot.preset, snapshot.presets, snapshot.source, snapshot.sources) for snapshot in snapshots} == {stable}
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
 async def test_altitude_ci_startup_noise_does_not_count_as_unknown():
     transport = FakeTransport(
         incoming_lines=[
