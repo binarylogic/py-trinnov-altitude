@@ -56,6 +56,33 @@ asyncio.run(main())
 - `await client.wait_synced()` waits until welcome + catalogs + current indices are observed.
 - `await client.stop()` stops listener and disconnects cleanly.
 
+### Processor power
+
+Client connection lifecycle and processor power are separate. `stop()` closes the
+client; it does not power down the processor.
+
+- `await client.power_off()` sends the secured shutdown command and waits for its
+  acknowledgement. Concurrent requests share the pending command. Cancelling a
+  requesting task does not cancel acknowledgement handling for an already-sent
+  shutdown; `stop()` still terminates the client's pending work.
+- `await client.wake(shutdown_timeout=60.0)` waits for any pending shutdown
+  acknowledgement and, after acknowledged shutdown, for the old connection to
+  close before requesting Wake-on-LAN. The acknowledgement uses the command
+  timeout; the disconnect wait has its own bounded `shutdown_timeout`.
+- A successful wake request does **not** mean boot is complete. Connection,
+  synchronization, and `runtime.power` provide subsequent readiness feedback.
+  Wake-on-LAN requires a configured MAC address.
+- `runtime.power == PowerState.OFF` following `power_off()` means shutdown was
+  acknowledged, not that the hardware has already finished powering down. An
+  unexplained connection loss is not evidence of acknowledged shutdown.
+
+Starting with 3.3.12, synchronous `power_on()` raises `CommandRejectedError` if a
+shutdown acknowledgement is pending or acknowledged shutdown still has an open
+connection. Async callers that want to wait through this transition should use
+`await client.wake()`. This prevents the previous connection from being mistaken
+for a newly ready processor. `power_off()` also now requires acknowledgement;
+command failures propagate instead of reporting unconfirmed shutdown as success.
+
 ### Liveness & reconnect
 
 The control connection is a long-lived TCP push session, so a silent read is
