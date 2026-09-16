@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.12](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.11...v3.3.12) (2026-09-16)
+
+
+### Bug Fixes
+
+* preserve shutdown acknowledgement and wait before waking ([#54](https://github.com/binarylogic/py-trinnov-altitude/issues/54)) ([bf93030](https://github.com/binarylogic/py-trinnov-altitude/commit/bf93030b04c9b80809f3f6949bcddc5a77877c51))
+
 ## [3.3.11](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.10...v3.3.11) (2026-08-18)
 
 
