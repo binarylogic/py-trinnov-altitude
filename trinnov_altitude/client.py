@@ -138,6 +138,9 @@ class TrinnovAltitudeClient:
         self._listen_task: asyncio.Task[None] | None = None
         self._reconcile_task: asyncio.Task[None] | None = None
         self._sync_event = asyncio.Event()
+        self._disconnected_event = asyncio.Event()
+        self._disconnected_event.set()
+        self._power_off_task: asyncio.Task[None] | None = None
         self._stopping = False
         self._probe_outstanding = False
 
@@ -214,6 +217,10 @@ class TrinnovAltitudeClient:
 
     async def stop(self) -> None:
         self._stopping = True
+        if self._power_off_task is not None and not self._power_off_task.done():
+            self._power_off_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._power_off_task
 
         if self._reconcile_task is not None:
             self._reconcile_task.cancel()
@@ -275,6 +282,7 @@ class TrinnovAltitudeClient:
             )
             raise
 
+        self._disconnected_event.clear()
         self.state.bypass = False
         self.state.dim = False
         self.state.mute = False
@@ -325,13 +333,12 @@ class TrinnovAltitudeClient:
             if not waiter.done():
                 waiter.set_exception(exceptions.NotConnectedError())
 
-        if transport is None:
-            return
-
-        with suppress(OSError, exceptions.NotConnectedError):
-            await transport.close()
-
-        self._emit("disconnected", None)
+        if transport is not None:
+            with suppress(OSError, exceptions.NotConnectedError):
+                await transport.close()
+        self._disconnected_event.set()
+        if transport is not None:
+            self._emit("disconnected", None)
 
     async def _listen_loop(self) -> None:
         try:
@@ -609,15 +616,42 @@ class TrinnovAltitudeClient:
     def power_on(self) -> None:
         if self.mac is None:
             raise exceptions.NoMacAddressError()
+        if (self._power_off_task is not None and not self._power_off_task.done()) or (
+            self.connected and self.runtime.power is PowerState.OFF
+        ):
+            raise exceptions.CommandRejectedError("power_on", "shutdown is still completing; await wake()")
         if self.connected and self.state.synced:
             self._set_runtime(power=PowerState.READY)
             return
         self._set_runtime(power=PowerState.WAKING)
         send_magic_packet(self.mac)
 
+    async def wake(self, shutdown_timeout: float = 60.0) -> None:
+        """Send wake only after an earlier accepted shutdown has disconnected."""
+        if self._power_off_task is not None and not self._power_off_task.done():
+            await asyncio.shield(self._power_off_task)
+        if self.runtime.power is PowerState.OFF and self.connected:
+            try:
+                await asyncio.wait_for(self._disconnected_event.wait(), shutdown_timeout)
+            except asyncio.TimeoutError as err:
+                raise exceptions.CommandConvergenceTimeoutError("shutdown disconnect before wake", shutdown_timeout) from err
+        self.power_on()
+
     async def power_off(self) -> None:
-        await self._command("power_off_SECURED_FHZMCH48FE")
+        """Request acknowledged shutdown, retaining its result if a caller cancels."""
+        if self._power_off_task is None or self._power_off_task.done():
+            self._power_off_task = asyncio.create_task(self._power_off_acknowledged())
+            self._power_off_task.add_done_callback(self._power_off_finished)
+        await asyncio.shield(self._power_off_task)
+
+    async def _power_off_acknowledged(self) -> None:
+        await self._command("power_off_SECURED_FHZMCH48FE", wait_for_ack=True)
         self._set_runtime(power=PowerState.OFF)
+
+    def _power_off_finished(self, task: asyncio.Task[None]) -> None:
+        # Retrieve errors even if the requesting automation was cancelled.
+        if not task.cancelled() and (error := task.exception()) is not None:
+            self.logger.warning("Trinnov shutdown request failed: %s", error)
 
     async def preset_get(self) -> None:
         await self._command("get_current_preset")

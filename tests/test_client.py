@@ -1196,7 +1196,10 @@ async def test_power_off_survives_trailing_messages_and_disconnect():
 
     await client.start()
     await client.wait_synced(timeout=1)
-    await client.power_off()
+    shutdown = asyncio.create_task(client.power_off())
+    await asyncio.wait_for(_wait_for(lambda: "power_off_SECURED_FHZMCH48FE" in transport.sent), timeout=1)
+    transport.push("OK")
+    await shutdown
 
     transport.push("VOLUME -41.0")
     await asyncio.wait_for(_wait_for(lambda: client.state.volume == -41.0), timeout=1)
@@ -1629,3 +1632,61 @@ async def _wait_for(predicate):
     while not predicate():
         with contextlib.suppress(asyncio.TimeoutError, TimeoutError):
             await asyncio.wait_for(event.wait(), timeout=0.01)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_shutdown_retains_ack_and_wake_waits_for_disconnect(monkeypatch):
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        mac="00:11:22:33:44:55",
+        transport_factory=FakeTransportFactory([transport]),
+        auto_reconnect=False,
+    )
+    sent_wakes = []
+    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", sent_wakes.append)
+    await client.start()
+    await client.wait_synced(timeout=1)
+    shutdown = asyncio.create_task(client.power_off())
+    await asyncio.wait_for(_wait_for(lambda: "power_off_SECURED_FHZMCH48FE" in transport.sent), timeout=1)
+    with pytest.raises(CommandRejectedError, match="shutdown is still completing"):
+        client.power_on()
+    shutdown.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await shutdown
+    transport.push("OK")
+    await asyncio.wait_for(_wait_for(lambda: client.runtime.power is PowerState.OFF), timeout=1)
+    wake = asyncio.create_task(client.wake(shutdown_timeout=1))
+    transport.push("VOLUME -41.0")
+    await asyncio.wait_for(_wait_for(lambda: client.state.volume == -41.0), timeout=1)
+    assert client.runtime.power is PowerState.OFF
+    assert not wake.done()
+    assert not sent_wakes
+    transport.push(None)
+    await wake
+    assert sent_wakes == ["00:11:22:33:44:55"]
+    assert client.runtime.power is PowerState.WAKING
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_wake_during_stuck_shutdown_times_out_without_claiming_ready(monkeypatch):
+    transport = FakeTransport(incoming_lines=synced_lines())
+    client = TrinnovAltitudeClient(
+        host="unused",
+        mac="00:11:22:33:44:55",
+        transport_factory=FakeTransportFactory([transport]),
+        auto_reconnect=False,
+    )
+    sent_wakes = []
+    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", sent_wakes.append)
+    await client.start()
+    await client.wait_synced(timeout=1)
+    client._set_runtime(power=PowerState.OFF)
+    with pytest.raises(CommandConvergenceTimeoutError, match="shutdown disconnect"):
+        await client.wake(shutdown_timeout=0.01)
+    assert client.runtime.power is PowerState.OFF
+    assert not sent_wakes
+    with pytest.raises(CommandRejectedError, match="shutdown is still completing"):
+        client.power_on()
+    await client.stop()
