@@ -6,6 +6,7 @@ import asyncio
 import logging
 import random
 import re
+import socket
 import time
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -106,9 +107,25 @@ class TrinnovAltitudeClient:
         random_func: RandomFunc | None = None,
         selector_convergence_timeout: float = DEFAULT_SELECTOR_CONVERGENCE_TIMEOUT,
         selector_convergence_interval: float = DEFAULT_SELECTOR_CONVERGENCE_INTERVAL,
+        *,
+        wol_host: str = "255.255.255.255",
+        wol_port: int = 9,
+        wol_interface: str | None = None,
+        wol_family: socket.AddressFamily = socket.AF_INET,
     ) -> None:
         if mac is not None:
             self.validate_mac(mac)
+
+        if not wol_host.strip():
+            raise ValueError("wol_host must not be empty")
+        if not 1 <= wol_port <= 65535:
+            raise ValueError("wol_port must be between 1 and 65535")
+        if wol_family not in (socket.AF_INET, socket.AF_INET6):
+            raise ValueError("wol_family must be AF_INET or AF_INET6")
+        self.wol_host = wol_host.strip()
+        self.wol_port = wol_port
+        self.wol_interface = wol_interface.strip() or None if wol_interface is not None else None
+        self.wol_family = wol_family
 
         self.host = host
         self.port = port
@@ -623,8 +640,14 @@ class TrinnovAltitudeClient:
         if self.connected and self.state.synced:
             self._set_runtime(power=PowerState.READY)
             return
+        send_magic_packet(
+            self.mac,
+            ip_address=self.wol_host,
+            port=self.wol_port,
+            interface=self.wol_interface,
+            address_family=self.wol_family,
+        )
         self._set_runtime(power=PowerState.WAKING)
-        send_magic_packet(self.mac)
 
     async def wake(self, shutdown_timeout: float = 60.0) -> None:
         """Send wake only after an earlier accepted shutdown has disconnected."""
