@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.4.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.12...v3.4.0) (2026-09-17)
+
+
+### Features
+
+* make Wake-on-LAN packet routing configurable ([#58](https://github.com/binarylogic/py-trinnov-altitude/issues/58)) ([2579c1e](https://github.com/binarylogic/py-trinnov-altitude/commit/2579c1e16dbde36577ba659b117fdee88c81cb9a))
+
+
+### Documentation
+
+* explain acknowledged shutdown and asynchronous wake ([#56](https://github.com/binarylogic/py-trinnov-altitude/issues/56)) ([12a13b0](https://github.com/binarylogic/py-trinnov-altitude/commit/12a13b0dcf4db78fa3369f84ce07f4694fbd18b4))
+
 ## [3.3.12](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.11...v3.3.12) (2026-09-16)
 
 
