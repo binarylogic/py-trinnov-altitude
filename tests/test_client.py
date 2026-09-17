@@ -1149,7 +1149,7 @@ async def test_power_on_marks_waking_without_claiming_connected(monkeypatch):
     sent = []
     client = TrinnovAltitudeClient(host="unused", mac="00:11:22:33:44:55")
 
-    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", lambda mac: sent.append(mac))
+    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", lambda mac, **kwargs: sent.append(mac))
 
     client.power_on()
 
@@ -1169,7 +1169,7 @@ async def test_power_on_does_not_downgrade_synced_connection(monkeypatch):
         transport_factory=FakeTransportFactory([transport]),
     )
 
-    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", lambda mac: sent.append(mac))
+    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", lambda mac, **kwargs: sent.append(mac))
 
     await client.start()
     await client.wait_synced(timeout=1)
@@ -1644,7 +1644,7 @@ async def test_cancelled_shutdown_retains_ack_and_wake_waits_for_disconnect(monk
         auto_reconnect=False,
     )
     sent_wakes = []
-    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", sent_wakes.append)
+    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", lambda mac, **kwargs: sent_wakes.append(mac))
     await client.start()
     await client.wait_synced(timeout=1)
     shutdown = asyncio.create_task(client.power_off())
@@ -1679,7 +1679,7 @@ async def test_wake_during_stuck_shutdown_times_out_without_claiming_ready(monke
         auto_reconnect=False,
     )
     sent_wakes = []
-    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", sent_wakes.append)
+    monkeypatch.setattr("trinnov_altitude.client.send_magic_packet", lambda mac, **kwargs: sent_wakes.append(mac))
     await client.start()
     await client.wait_synced(timeout=1)
     client._set_runtime(power=PowerState.OFF)

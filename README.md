@@ -246,3 +246,29 @@ Pyx is optional in this repo. You can keep publishing to PyPI/TestPyPI only.
 - Migration guide: [docs/MIGRATION_V2.md](docs/MIGRATION_V2.md)
 - Maintainer runbook: [docs/MAINTAINERS.md](docs/MAINTAINERS.md)
 - Protocol reference used for implementation: [docs/Altitude Protocol.pdf](docs/Altitude%20Protocol.pdf) (v1.15, 2019-04-19)
+
+### Wake-on-LAN network settings
+
+The optional keyword-only constructor arguments `wol_host`, `wol_port`,
+`wol_interface`, and `wol_family` apply to both `power_on()` and `await wake()`.
+Defaults preserve IPv4 broadcast to `255.255.255.255:9` with the OS-selected
+outgoing interface. The control connection's `host` and `port` are independent.
+
+```python
+import socket
+
+client = TrinnovAltitudeClient(
+    host="192.168.20.10",
+    mac="00:11:22:33:44:55",
+    wol_host="192.168.20.255",
+    wol_port=9,
+    wol_interface="192.168.10.2",
+    wol_family=socket.AF_INET,
+)
+```
+
+`wol_interface` is a local IP address in the application's network namespace,
+not an interface name or the receiver's address. Use `socket.AF_INET6` for an IPv6 destination. The
+network still needs to permit or relay the packet across VLANs; successful UDP
+sending does not confirm delivery or readiness. Local socket errors propagate
+to the caller without marking the device as waking.
