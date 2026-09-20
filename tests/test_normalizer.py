@@ -7,7 +7,14 @@ from trinnov_altitude.canonical import (
     UpsertSourceEvent,
 )
 from trinnov_altitude.normalizer import PROFILE_ALTITUDE_CI, PROFILE_DEFAULT, normalize_message, select_profile
-from trinnov_altitude.protocol import DecoderMessage, IdentsMessage, MetaPresetLoadedMessage, SourceMessage, UpmixerModeMessage
+from trinnov_altitude.protocol import (
+    DecoderMessage,
+    IdentsMessage,
+    MetaPresetLoadedMessage,
+    SourceMessage,
+    UnknownMessage,
+    UpmixerModeMessage,
+)
 
 
 def test_select_profile_uses_altitude_ci_feature():
@@ -41,6 +48,24 @@ def test_decoder_normalization_emits_active_upmixer():
 def test_upmixer_message_normalization_emits_configured_mode():
     events = normalize_message(UpmixerModeMessage(mode="auto"), PROFILE_DEFAULT)
     assert events == [SetUpmixerModeEvent(mode="auto")]
+
+
+def test_unknown_message_with_bare_upmixer_mode_name_emits_upmixer_event():
+    # Some firmware answers an "upmixer" query with a bare mode name (e.g.
+    # "native") instead of "UPMIXER native", so the parser can't attribute it
+    # to UpmixerModeMessage; the normalizer recognizes it from content alone.
+    events = normalize_message(UnknownMessage(raw_message="native"), PROFILE_DEFAULT)
+    assert events == [SetUpmixerModeEvent(mode="native")]
+
+
+def test_unknown_message_with_bare_upmixer_mode_name_is_case_and_space_tolerant():
+    events = normalize_message(UnknownMessage(raw_message="  UPMIX ON NATIVE  "), PROFILE_DEFAULT)
+    assert events == [SetUpmixerModeEvent(mode="upmix on native")]
+
+
+def test_unknown_message_unrelated_to_upmixer_emits_no_events():
+    events = normalize_message(UnknownMessage(raw_message="RIAA_PHONO 0"), PROFILE_DEFAULT)
+    assert events == []
 
 
 def test_source_from_profile_uses_high_quality():

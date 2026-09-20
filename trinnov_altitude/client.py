@@ -760,7 +760,17 @@ class TrinnovAltitudeClient:
 
     async def upmixer_set(self, mode: const.UpmixerMode) -> None:
         await self._command(f"upmixer {mode.value}")
-        await self.upmixer_get()
+        # The immediate readback below can race the processor: querying
+        # "upmixer" right after setting it sometimes answers with the
+        # PRE-change mode rather than the one just requested (measured
+        # directly: set dts while on dolby, the immediate query returns
+        # dolby, the same query 2s later returns dts). Poll like preset_set()
+        # does rather than trusting a single readback.
+        await self._refresh_until(
+            refresh=self.upmixer_get,
+            predicate=lambda: self.state.upmixer == mode.value,
+            description=f"upmixer {mode.value} to become active",
+        )
 
     async def state_get_current(self) -> None:
         await self._command("get_current_state")

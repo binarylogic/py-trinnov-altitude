@@ -28,6 +28,7 @@ from trinnov_altitude.canonical import (
     UpsertPresetEvent,
     UpsertSourceEvent,
 )
+from trinnov_altitude.const import UpmixerMode
 from trinnov_altitude.protocol import (
     AudiosyncMessage,
     AudiosyncStatusMessage,
@@ -47,10 +48,13 @@ from trinnov_altitude.protocol import (
     SourceMessage,
     SourcesChangedMessage,
     SourcesClearMessage,
+    UnknownMessage,
     UpmixerModeMessage,
     VolumeMessage,
     WelcomeMessage,
 )
+
+_BARE_UPMIXER_MODE_VALUES = frozenset(mode.value for mode in UpmixerMode)
 
 PROFILE_DEFAULT = "default"
 PROFILE_ALTITUDE_CI = "altitude_ci"
@@ -81,6 +85,16 @@ def normalize_message(message: Message, profile: str) -> list[CanonicalEvent]:  
         return [SetDimEvent(state=message.state)]
     if isinstance(message, UpmixerModeMessage):
         return [SetUpmixerModeEvent(mode=message.mode)]
+    if isinstance(message, UnknownMessage):
+        # Some firmware answers an "upmixer" query with a bare mode name
+        # (e.g. "native") instead of the documented "UPMIXER native", so the
+        # parser can't attribute it to any known message type. Recognize the
+        # quirk here, from content alone, since it is exactly a known
+        # UpmixerMode value and nothing else on the wire collides with one.
+        bare = message.raw_message.strip().lower()
+        if bare in _BARE_UPMIXER_MODE_VALUES:
+            return [SetUpmixerModeEvent(mode=bare)]
+        return []
     if isinstance(message, IdentsMessage):
         return [SetFeaturesEvent(features=message.features)]
     if isinstance(message, MetaPresetLoadedMessage):

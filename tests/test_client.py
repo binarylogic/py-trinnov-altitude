@@ -720,12 +720,100 @@ async def test_upmixer_set_queries_current_upmixer_after_command():
 
     client.state.upmixer = "none"
 
-    transport.push("UPMIXER dolby dolby")
+    transport.push("UPMIXER dolby")
     await client.upmixer_set(const.UpmixerMode.MODE_DOLBY)
-    await asyncio.wait_for(_wait_for(lambda: client.state.upmixer == "dolby dolby"), timeout=1)
 
-    assert transport.sent[-2:] == ["upmixer dolby", "upmixer"]
-    assert client.state.upmixer == "dolby dolby"
+    upmixer_commands = transport.sent[3:]
+    assert upmixer_commands[0] == "upmixer dolby"
+    assert upmixer_commands.count("upmixer dolby") == 1
+    assert "upmixer" in upmixer_commands
+    assert client.state.upmixer == "dolby"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_upmixer_set_retries_readback_without_repeating_set_command():
+    # The processor's readback right after a set can race the change and
+    # answer with the PRE-change mode before it answers with the new one
+    # (measured directly against a real unit). upmixer_set() must poll
+    # rather than trust a single readback.
+    transport = FakeTransport(incoming_lines=[*synced_lines()])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.1,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.upmixer = "none"
+
+    set_task = asyncio.create_task(client.upmixer_set(const.UpmixerMode.MODE_DTS))
+    await asyncio.sleep(0)
+    transport.push("UPMIXER none")
+    await asyncio.sleep(0)
+    transport.push("UPMIXER dts")
+    await set_task
+
+    upmixer_commands = transport.sent[3:]
+    assert upmixer_commands.count("upmixer dts") == 1
+    assert upmixer_commands.count("upmixer") >= 2
+    assert client.state.upmixer == "dts"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_upmixer_set_timeout_does_not_repeat_set_command():
+    transport = FakeTransport(incoming_lines=[*synced_lines()])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.01,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.upmixer = "none"
+
+    with pytest.raises(CommandConvergenceTimeoutError, match="upmixer dts"):
+        await client.upmixer_set(const.UpmixerMode.MODE_DTS)
+
+    upmixer_commands = transport.sent[3:]
+    assert upmixer_commands.count("upmixer dts") == 1
+    assert "upmixer" in upmixer_commands
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_upmixer_set_converges_on_bare_mode_name_reply():
+    # Some firmware answers an "upmixer" query with a bare mode name (e.g.
+    # "native") instead of the documented "UPMIXER native". upmixer_set()
+    # must still converge once the normalizer recognizes that quirk.
+    transport = FakeTransport(incoming_lines=[*synced_lines()])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.upmixer = "none"
+
+    transport.push("native")
+    await client.upmixer_set(const.UpmixerMode.MODE_NATIVE)
+
+    assert client.state.upmixer == "native"
 
     await client.stop()
 
@@ -1531,7 +1619,6 @@ async def test_protocol_helper_commands_emit_expected_lines():
     await client.change_page(1)
     await client.optimization_toggle()
     await client.remapping_mode_set(const.RemappingMode.MODE_AUTOROUTE)
-    await client.upmixer_set(const.UpmixerMode.MODE_UPMIX_ON_NATIVE)
     await client.bye()
 
     assert "get_label 2" in transport.sent
@@ -1541,7 +1628,6 @@ async def test_protocol_helper_commands_emit_expected_lines():
     assert "change_page 1" in transport.sent
     assert "quick_optimized 2" in transport.sent
     assert "remapping_mode autoroute" in transport.sent
-    assert "upmixer upmix on native" in transport.sent
     assert "bye" in transport.sent
 
     await client.stop()
