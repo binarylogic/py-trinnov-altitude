@@ -1,3 +1,5 @@
+import pytest
+
 from trinnov_altitude.canonical import (
     SOURCE_LABEL_QUALITY_OPTSOURCE,
     SOURCE_LABEL_QUALITY_PROFILE,
@@ -6,6 +8,7 @@ from trinnov_altitude.canonical import (
     SetUpmixerModeEvent,
     UpsertSourceEvent,
 )
+from trinnov_altitude.const import UpmixerMode
 from trinnov_altitude.normalizer import PROFILE_ALTITUDE_CI, PROFILE_DEFAULT, normalize_message, select_profile
 from trinnov_altitude.protocol import (
     DecoderMessage,
@@ -14,6 +17,7 @@ from trinnov_altitude.protocol import (
     SourceMessage,
     UnknownMessage,
     UpmixerModeMessage,
+    parse_message,
 )
 
 
@@ -76,3 +80,28 @@ def test_source_from_profile_uses_high_quality():
 def test_source_from_optsource_uses_lower_quality():
     events = normalize_message(SourceMessage(index=0, name="Source 1", origin="optsource"), PROFILE_DEFAULT)
     assert events == [UpsertSourceEvent(index=0, name="Source 1", quality=SOURCE_LABEL_QUALITY_OPTSOURCE)]
+
+
+@pytest.mark.parametrize("mode", list(UpmixerMode))
+@pytest.mark.parametrize("prefix", ["", "UPMIXER ", "upmixer "])
+def test_known_upmixer_modes_have_one_canonical_value(mode, prefix):
+    value = mode.value.upper().replace(" ", "_")
+    assert normalize_message(parse_message(prefix + value), PROFILE_DEFAULT) == [SetUpmixerModeEvent(mode=mode.value)]
+
+
+@pytest.mark.parametrize("value", ["dolby dolby", "Neural X", "Native Experimental"])
+def test_unfamiliar_upmixer_values_are_preserved_not_guessed(value):
+    assert normalize_message(parse_message("UPMIXER " + value), PROFILE_DEFAULT) == [SetUpmixerModeEvent(mode=value)]
+    assert normalize_message(parse_message(value), PROFILE_DEFAULT) == []
+
+
+def test_feature_identifiers_are_case_insensitive():
+    assert select_profile(["ALTITUDE_CI"]) == PROFILE_ALTITUDE_CI
+    assert normalize_message(parse_message("idents ALTITUDE_CI,with_TSF"), PROFILE_DEFAULT) == [
+        SetFeaturesEvent(features=("altitude_ci", "with_tsf"))
+    ]
+
+
+def test_decoder_normalization_does_not_claim_configured_mode():
+    events = normalize_message(parse_message("decoder nonaudio 0 playable 1 decoder PCM upmixer DOLBY"), PROFILE_DEFAULT)
+    assert events == [SetDecoderEvent(decoder="PCM", active_upmixer="dolby")]

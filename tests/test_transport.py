@@ -63,3 +63,13 @@ async def test_connect_can_disable_tcp_keepalive():
             assert sock.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) == 0
         finally:
             await transport.close()
+
+
+@pytest.mark.asyncio
+async def test_line_framing_preserves_payload_case_and_spaces():
+    transport = TcpTransport("unused", 44100)
+    reader = asyncio.StreamReader()
+    transport._reader = reader
+    reader.feed_data(b"LABEL 1: MLP (Music)  \r\nFuture MixedCase  \n")
+    assert await transport.read_line(1) == "LABEL 1: MLP (Music)  "
+    assert await transport.read_line(1) == "Future MixedCase  "
