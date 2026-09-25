@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.1](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.4.0...v3.4.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* normalize protocol replies and confirm upmixer changes ([#60](https://github.com/binarylogic/py-trinnov-altitude/issues/60)) ([3283117](https://github.com/binarylogic/py-trinnov-altitude/commit/328311798efc724f50a5e9cf07245475263ecc39))
+
 ## [3.4.0](https://github.com/binarylogic/py-trinnov-altitude/compare/v3.3.12...v3.4.0) (2026-09-17)
 
 
