@@ -17,6 +17,9 @@ AUDIO_FORMAT_MAPPING = {
 }
 
 
+_AUDIO_FORMAT_LABELS = {token.casefold(): label for token, label in AUDIO_FORMAT_MAPPING.items()}
+
+
 @dataclass(frozen=True)
 class Message:
     """Base message type."""
@@ -203,7 +206,7 @@ def _to_decoder(match: re.Match[str]) -> Message:
     return DecoderMessage(
         nonaudio=bool(int(match.group(1))),
         playable=bool(int(match.group(2))),
-        decoder=AUDIO_FORMAT_MAPPING.get(decoder, decoder),
+        decoder=_AUDIO_FORMAT_LABELS.get(decoder.casefold(), decoder),
         upmixer=match.group(4),
     )
 
@@ -290,51 +293,56 @@ def _to_optsource(match: re.Match[str]) -> Message:
     return SourceMessage(int(match.group(1)), match.group(2).strip(), origin="optsource")
 
 
+def _pattern(expression: str) -> re.Pattern[str]:
+    """Match ASCII protocol keywords without changing captured payload text."""
+    return re.compile(expression, re.IGNORECASE | re.ASCII)
+
+
 PARSER_RULES: tuple[Rule, ...] = (
-    (re.compile(r"^AUDIOSYNC STATUS\s(0|1)$"), _to_audiosync_status),
-    (re.compile(r"^AUDIOSYNC_STATUS\s(0|1)$"), _to_audiosync_status),
-    (re.compile(r"^AUDIOSYNC\s(.*)$"), _to_audiosync),
-    (re.compile(r"^BYPASS\s(0|1)$"), _to_bypass),
-    (re.compile(r"^BYE$"), _to_bye),
-    (re.compile(r"^CURRENT_PRESET\s(-?\d+)$"), _to_current_preset),
-    (re.compile(r"^META_PRESET_LOADED\s(-?\d+)$"), _to_meta_preset_loaded),
-    (re.compile(r"^CURRENT_PROFILE\s(-?\d+)$"), _to_current_source),
+    (_pattern(r"^AUDIOSYNC STATUS\s(0|1)$"), _to_audiosync_status),
+    (_pattern(r"^AUDIOSYNC_STATUS\s(0|1)$"), _to_audiosync_status),
+    (_pattern(r"^AUDIOSYNC\s(.*)$"), _to_audiosync),
+    (_pattern(r"^BYPASS\s(0|1)$"), _to_bypass),
+    (_pattern(r"^BYE$"), _to_bye),
+    (_pattern(r"^CURRENT_PRESET\s(-?\d+)$"), _to_current_preset),
+    (_pattern(r"^META_PRESET_LOADED\s(-?\d+)$"), _to_meta_preset_loaded),
+    (_pattern(r"^CURRENT_PROFILE\s(-?\d+)$"), _to_current_source),
     # Live Altitude 32 traces emit bare SOURCE <n> during source changes even when the
     # active user-facing input remains on a different CURRENT_PROFILE. Treat it as noise
     # until proven otherwise; CURRENT_PROFILE is the authoritative active input signal.
-    (re.compile(r"^SOURCE\s(-?\d+)$"), _to_ignored),
-    (re.compile(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)$"), _to_current_source_format),
-    (re.compile(r"^CURRENT_SOURCE_CHANNELS_ORDER_IS_DCI\s(0|1)$"), _to_ignored),
-    (re.compile(r"^CURRENT_SOURCE_CHANNELS_ORDER\s(.*)$"), _to_ignored),
-    (re.compile(r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)$"), _to_decoder),
-    (re.compile(r"^DIM\s(-?\d+)$"), _to_dim),
-    (re.compile(r"^DISPLAY_VOLUME\s(-?\d+(?:\.\d+)?)$"), _to_ignored),
-    (re.compile(r"^UPMIXER\s(.*)$"), _to_upmixer_mode),
-    (re.compile(r"^IDENTS\s(.*)$"), _to_idents),
-    (re.compile(r"^ERROR: (.*)$"), _to_error),
-    (re.compile(r"^CALIBRATION_DONE$"), _to_ignored),
-    (re.compile(r"^LABEL\s(-?\d+): (.*)$"), _to_preset),
-    (re.compile(r"^LABELS_CLEAR$"), _to_presets_clear),
-    (re.compile(r"^MUTE\s(0|1)$"), _to_mute),
-    (re.compile(r"^MON_VOL\s(-?\d+(?:\.\d+)?)$"), _to_ignored),
-    (re.compile(r"^MON_REMOTE_[A-Z0-9_]+\s(-?\d+)$"), _to_ignored),
-    (re.compile(r"^OK$"), _to_ok),
-    (re.compile(r"^PROFILE\s(-?\d+)$"), _to_current_source),
-    (re.compile(r"^PROFILE\s(-?\d+): (.*)$"), _to_source),
+    (_pattern(r"^SOURCE\s(-?\d+)$"), _to_ignored),
+    (_pattern(r"^CURRENT_SOURCE_FORMAT_NAME\s(.*)$"), _to_current_source_format),
+    (_pattern(r"^CURRENT_SOURCE_CHANNELS_ORDER_IS_DCI\s(0|1)$"), _to_ignored),
+    (_pattern(r"^CURRENT_SOURCE_CHANNELS_ORDER\s(.*)$"), _to_ignored),
+    (_pattern(r"^DECODER NONAUDIO (\d+) PLAYABLE (\d+) DECODER (.*) UPMIXER (.*)$"), _to_decoder),
+    (_pattern(r"^DIM\s(-?\d+)$"), _to_dim),
+    (_pattern(r"^DISPLAY_VOLUME\s(-?\d+(?:\.\d+)?)$"), _to_ignored),
+    (_pattern(r"^UPMIXER\s(.*)$"), _to_upmixer_mode),
+    (_pattern(r"^IDENTS\s(.*)$"), _to_idents),
+    (_pattern(r"^ERROR: (.*)$"), _to_error),
+    (_pattern(r"^CALIBRATION_DONE$"), _to_ignored),
+    (_pattern(r"^LABEL\s(-?\d+): (.*)$"), _to_preset),
+    (_pattern(r"^LABELS_CLEAR$"), _to_presets_clear),
+    (_pattern(r"^MUTE\s(0|1)$"), _to_mute),
+    (_pattern(r"^MON_VOL\s(-?\d+(?:\.\d+)?)$"), _to_ignored),
+    (_pattern(r"^MON_REMOTE_[A-Z0-9_]+\s(-?\d+)$"), _to_ignored),
+    (_pattern(r"^OK$"), _to_ok),
+    (_pattern(r"^PROFILE\s(-?\d+)$"), _to_current_source),
+    (_pattern(r"^PROFILE\s(-?\d+): (.*)$"), _to_source),
     # Seen on some Altitude CI builds; includes source id/name list entries.
-    (re.compile(r"^OPTSOURCE\s(-?\d+)\s(.*?)\s+OK$"), _to_optsource),
-    (re.compile(r"^OPTSOURCE\s(-?\d+)\s(.*)$"), _to_optsource),
-    (re.compile(r"^PROFILES_CLEAR$"), _to_sources_clear),
-    (re.compile(r"^REMAPPING_MODE\s(.*)$"), _to_ignored),
-    (re.compile(r"^SOURCES_CHANGED$"), _to_sources_changed),
+    (_pattern(r"^OPTSOURCE\s(-?\d+)\s(.*?)\s+OK$"), _to_optsource),
+    (_pattern(r"^OPTSOURCE\s(-?\d+)\s(.*)$"), _to_optsource),
+    (_pattern(r"^PROFILES_CLEAR$"), _to_sources_clear),
+    (_pattern(r"^REMAPPING_MODE\s(.*)$"), _to_ignored),
+    (_pattern(r"^SOURCES_CHANGED$"), _to_sources_changed),
     (
-        re.compile(r"^SPEAKER_INFO\s(\d+)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)$"),
+        _pattern(r"^SPEAKER_INFO\s(\d+)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)\s(-?\d+(?:\.\d+)?)$"),
         _to_speaker_info,
     ),
-    (re.compile(r"^SRATE\s(\d+)$"), _to_srate),
-    (re.compile(r"^START_RUNNING$"), _to_start_running),
-    (re.compile(r"^VOLUME\s(-?\d+(?:\.\d+)?)$"), _to_volume),
-    (re.compile(r"^Welcome on Trinnov Optimizer \(Version (\S+), ID (\d+)\)$"), _to_welcome),
+    (_pattern(r"^SRATE\s(\d+)$"), _to_srate),
+    (_pattern(r"^START_RUNNING$"), _to_start_running),
+    (_pattern(r"^VOLUME\s(-?\d+(?:\.\d+)?)$"), _to_volume),
+    (_pattern(r"^Welcome on Trinnov Optimizer \(Version (\S+), ID (\d+)\)$"), _to_welcome),
 )
 
 

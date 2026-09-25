@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import random
 import re
 import socket
-import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
@@ -144,6 +144,10 @@ class TrinnovAltitudeClient:
         if reconcile_interval is not None and reconcile_interval <= 0:
             raise ValueError("reconcile_interval must be positive or None")
         self.reconcile_interval = reconcile_interval
+        if not math.isfinite(selector_convergence_timeout) or selector_convergence_timeout <= 0:
+            raise ValueError("selector_convergence_timeout must be finite and positive")
+        if not math.isfinite(selector_convergence_interval) or selector_convergence_interval < 0:
+            raise ValueError("selector_convergence_interval must be finite and nonnegative")
         self.selector_convergence_timeout = selector_convergence_timeout
         self.selector_convergence_interval = selector_convergence_interval
 
@@ -404,10 +408,9 @@ class TrinnovAltitudeClient:
     async def _read_and_dispatch(self) -> None:
         line = await self._read_line()
         message = parse_message(line)
-        if isinstance(message, UnknownMessage):
+        events = self.state.apply(message)
+        if isinstance(message, UnknownMessage) and not events:
             self._record_unknown_message(message.raw_message)
-
-        self.state.apply(message)
         if isinstance(message, MetaPresetLoadedMessage):
             await self._refresh_authoritative_selectors()
 
@@ -722,15 +725,20 @@ class TrinnovAltitudeClient:
         predicate: Callable[[], bool],
         description: str,
     ) -> None:
-        deadline = time.monotonic() + self.selector_convergence_timeout
-        while True:
-            await refresh()
-            await self._sleep(0)
-            if predicate():
-                return
-            if time.monotonic() >= deadline:
-                raise exceptions.CommandConvergenceTimeoutError(description, self.selector_convergence_timeout)
-            await self._sleep(self.selector_convergence_interval)
+        """Poll authoritative state with a deadline that also bounds query I/O."""
+
+        async def poll() -> None:
+            while True:
+                await refresh()
+                await self._sleep(0)
+                if predicate():
+                    return
+                await self._sleep(self.selector_convergence_interval)
+
+        try:
+            await asyncio.wait_for(poll(), timeout=self.selector_convergence_timeout)
+        except asyncio.TimeoutError as err:
+            raise exceptions.CommandConvergenceTimeoutError(description, self.selector_convergence_timeout) from err
 
     async def _command_until(
         self,
@@ -741,16 +749,12 @@ class TrinnovAltitudeClient:
     ) -> None:
         if predicate():
             return
-        deadline = time.monotonic() + self.selector_convergence_timeout
-        while True:
+
+        async def command_and_refresh() -> None:
             await command()
             await refresh()
-            await self._sleep(0)
-            if predicate():
-                return
-            if time.monotonic() >= deadline:
-                raise exceptions.CommandConvergenceTimeoutError(description, self.selector_convergence_timeout)
-            await self._sleep(self.selector_convergence_interval)
+
+        await self._refresh_until(command_and_refresh, predicate, description)
 
     async def remapping_mode_set(self, mode: const.RemappingMode) -> None:
         await self._command(f"remapping_mode {mode.value}")
@@ -760,7 +764,12 @@ class TrinnovAltitudeClient:
 
     async def upmixer_set(self, mode: const.UpmixerMode) -> None:
         await self._command(f"upmixer {mode.value}")
-        await self.upmixer_get()
+        # Acceptance precedes application: repeat readbacks, never the setting.
+        await self._refresh_until(
+            refresh=self.upmixer_get,
+            predicate=lambda: self.state.upmixer == mode.value,
+            description=f"upmixer {mode.value} to become active",
+        )
 
     async def state_get_current(self) -> None:
         await self._command("get_current_state")

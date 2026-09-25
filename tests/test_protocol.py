@@ -1,3 +1,5 @@
+import pytest
+
 from trinnov_altitude.protocol import (
     AudiosyncStatusMessage,
     ByeMessage,
@@ -8,6 +10,7 @@ from trinnov_altitude.protocol import (
     IdentsMessage,
     IgnoredMessage,
     MetaPresetLoadedMessage,
+    OKMessage,
     PresetMessage,
     SourceMessage,
     SourcesChangedMessage,
@@ -186,3 +189,35 @@ def test_parser_handles_diverse_unknowns_without_crashing():
         message = parse_message(line)
         assert isinstance(message, UnknownMessage)
         assert message.raw_message == line
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("current_profile 4", CurrentSourceMessage(4)),
+        ("cUrReNt_PrEsEt 2", CurrentPresetMessage(2)),
+        ("profile 0: Apple TV  ", SourceMessage(0, "Apple TV  ", "profile")),
+        ("label 1: MLP (Music)", PresetMessage(1, "MLP (Music)")),
+        ("optsource 3 HDMI eARC ok", SourceMessage(3, "HDMI eARC", "optsource")),
+        ("error: Invalid Source Name", ErrorMessage("Invalid Source Name")),
+        ("volume -22.5", VolumeMessage(-22.5)),
+        ("ok", OKMessage()),
+        ("bye", ByeMessage()),
+        ("upmixer DOLBY", UpmixerModeMessage("DOLBY")),
+    ],
+)
+def test_keywords_are_case_insensitive_without_rewriting_payload(line, expected):
+    assert parse_message(line) == expected
+
+
+def test_unknown_protocol_message_preserves_original_text():
+    raw = "FUTURE_FIELD MixedCase Payload  "
+    assert parse_message(raw) == UnknownMessage(raw)
+
+
+def test_case_insensitive_decoder_keyword_keeps_mapping_and_unknown_format():
+    known = parse_message("decoder nonaudio 0 playable 1 decoder atmos truehd upmixer NATIVE")
+    assert known.decoder == "Dolby Atmos/Dolby TrueHD"
+    assert known.upmixer == "NATIVE"
+    unknown = parse_message("decoder nonaudio 0 playable 1 decoder Future Codec upmixer native")
+    assert unknown.decoder == "Future Codec"

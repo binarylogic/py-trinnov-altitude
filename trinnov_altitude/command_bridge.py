@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from trinnov_altitude.const import RemappingMode, UpmixerMode
+from trinnov_altitude.normalizer import normalize_upmixer_mode
 
 VALID_COMMANDS: frozenset[str] = frozenset(
     {
@@ -92,7 +93,7 @@ def cast_primitive(arg: str) -> bool | int | float | str:
 
 def parse_upmixer_mode(value: str) -> UpmixerMode:
     """Convert user input to an UpmixerMode."""
-    value_lower = value.lower()
+    value_lower = normalize_upmixer_mode(value)
     for mode in UpmixerMode:
         if mode.value == value_lower:
             return mode

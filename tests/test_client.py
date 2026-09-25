@@ -720,12 +720,100 @@ async def test_upmixer_set_queries_current_upmixer_after_command():
 
     client.state.upmixer = "none"
 
-    transport.push("UPMIXER dolby dolby")
+    transport.push("UPMIXER dolby")
     await client.upmixer_set(const.UpmixerMode.MODE_DOLBY)
-    await asyncio.wait_for(_wait_for(lambda: client.state.upmixer == "dolby dolby"), timeout=1)
 
-    assert transport.sent[-2:] == ["upmixer dolby", "upmixer"]
-    assert client.state.upmixer == "dolby dolby"
+    upmixer_commands = transport.sent[3:]
+    assert upmixer_commands[0] == "upmixer dolby"
+    assert upmixer_commands.count("upmixer dolby") == 1
+    assert "upmixer" in upmixer_commands
+    assert client.state.upmixer == "dolby"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_upmixer_set_retries_readback_without_repeating_set_command():
+    # The processor's readback right after a set can race the change and
+    # answer with the PRE-change mode before it answers with the new one
+    # (measured directly against a real unit). upmixer_set() must poll
+    # rather than trust a single readback.
+    transport = FakeTransport(incoming_lines=[*synced_lines()])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.1,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.upmixer = "none"
+
+    set_task = asyncio.create_task(client.upmixer_set(const.UpmixerMode.MODE_DTS))
+    await asyncio.sleep(0)
+    transport.push("UPMIXER none")
+    await asyncio.sleep(0)
+    transport.push("UPMIXER dts")
+    await set_task
+
+    upmixer_commands = transport.sent[3:]
+    assert upmixer_commands.count("upmixer dts") == 1
+    assert upmixer_commands.count("upmixer") >= 2
+    assert client.state.upmixer == "dts"
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_upmixer_set_timeout_does_not_repeat_set_command():
+    transport = FakeTransport(incoming_lines=[*synced_lines()])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.01,
+        selector_convergence_interval=0.0,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.upmixer = "none"
+
+    with pytest.raises(CommandConvergenceTimeoutError, match="upmixer dts"):
+        await client.upmixer_set(const.UpmixerMode.MODE_DTS)
+
+    upmixer_commands = transport.sent[3:]
+    assert upmixer_commands.count("upmixer dts") == 1
+    assert "upmixer" in upmixer_commands
+
+    await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_upmixer_set_converges_on_bare_mode_name_reply():
+    # Some firmware answers an "upmixer" query with a bare mode name (e.g.
+    # "native") instead of the documented "UPMIXER native". upmixer_set()
+    # must still converge once the normalizer recognizes that quirk.
+    transport = FakeTransport(incoming_lines=[*synced_lines()])
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+    )
+
+    await client.start()
+    await client.wait_synced(timeout=1)
+
+    client.state.upmixer = "none"
+
+    transport.push("native")
+    await client.upmixer_set(const.UpmixerMode.MODE_NATIVE)
+
+    assert client.state.upmixer == "native"
 
     await client.stop()
 
@@ -1531,7 +1619,6 @@ async def test_protocol_helper_commands_emit_expected_lines():
     await client.change_page(1)
     await client.optimization_toggle()
     await client.remapping_mode_set(const.RemappingMode.MODE_AUTOROUTE)
-    await client.upmixer_set(const.UpmixerMode.MODE_UPMIX_ON_NATIVE)
     await client.bye()
 
     assert "get_label 2" in transport.sent
@@ -1541,7 +1628,6 @@ async def test_protocol_helper_commands_emit_expected_lines():
     assert "change_page 1" in transport.sent
     assert "quick_optimized 2" in transport.sent
     assert "remapping_mode autoroute" in transport.sent
-    assert "upmixer upmix on native" in transport.sent
     assert "bye" in transport.sent
 
     await client.stop()
@@ -1690,3 +1776,149 @@ async def test_wake_during_stuck_shutdown_times_out_without_claiming_ready(monke
     with pytest.raises(CommandRejectedError, match="shutdown is still completing"):
         client.power_on()
     await client.stop()
+
+
+class UpmixerReadbackTransport(FakeTransport):
+    """Answer queries only after the setting command; interleave unrelated pushes."""
+
+    def __init__(self, final_reply):
+        super().__init__(synced_lines())
+        self.final_reply = final_reply
+        self.setting_sent = False
+        self.readbacks = 0
+
+    async def send_line(self, line, timeout):
+        await super().send_line(line, timeout)
+        if line.startswith("upmixer "):
+            self.setting_sent = True
+        elif line == "upmixer" and self.setting_sent:
+            self.readbacks += 1
+            self.push("OK")
+            self.push("VOLUME -25.0")
+            self.push("DECODER NONAUDIO 0 PLAYABLE 1 DECODER PCM UPMIXER native")
+            self.push("UPMIXER auto" if self.readbacks == 1 else self.final_reply)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reply", ["dolby", "DOLBY", "UPMIXER DOLBY", "upmixer dolby"])
+async def test_upmixer_confirmation_uses_normalized_readback_not_ack_or_decoder(reply):
+    transport = UpmixerReadbackTransport(reply)
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.5,
+        selector_convergence_interval=0.001,
+    )
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        await client.upmixer_set(const.UpmixerMode.MODE_DOLBY)
+        assert client.state.upmixer == "dolby"
+        assert client.state.active_upmixer == "native"
+        assert transport.readbacks >= 2
+        assert transport.sent.count("upmixer dolby") == 1
+        assert client.unknown_message_count == 0
+        transport.push("RIAA_PHONO 0")
+        await asyncio.wait_for(_wait_for(lambda: client.unknown_message_count == 1), 1)
+        assert client.recent_unknown_messages == ("RIAA_PHONO 0",)
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_unfamiliar_upmixer_readback_is_retained_but_does_not_confirm_setting():
+    transport = UpmixerReadbackTransport("UPMIXER dolby dolby")
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.03,
+        selector_convergence_interval=0.001,
+    )
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        with pytest.raises(CommandConvergenceTimeoutError):
+            await client.upmixer_set(const.UpmixerMode.MODE_DOLBY)
+        assert client.state.upmixer == "dolby dolby"
+        assert transport.sent.count("upmixer dolby") == 1
+    finally:
+        await client.stop()
+
+
+class BlockedSelectorQueryTransport(FakeTransport):
+    def __init__(self):
+        super().__init__(synced_lines())
+        self.block = False
+        self.query_started = asyncio.Event()
+        self.query_cancelled = False
+
+    async def send_line(self, line, timeout):
+        await super().send_line(line, timeout)
+        if self.block and line in {"upmixer", "get_current_preset", "get_current_profile"}:
+            self.query_started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                self.query_cancelled = True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("method", "value"), [("upmixer_set", const.UpmixerMode.MODE_DOLBY), ("preset_set", 2), ("source_set", 2)]
+)
+async def test_selector_deadline_bounds_blocked_query_io(method, value):
+    transport = BlockedSelectorQueryTransport()
+    client = TrinnovAltitudeClient(
+        host="unused",
+        transport_factory=FakeTransportFactory([transport]),
+        read_timeout=0.01,
+        selector_convergence_timeout=0.02,
+    )
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        transport.block = True
+        with pytest.raises(CommandConvergenceTimeoutError):
+            await asyncio.wait_for(getattr(client, method)(value), timeout=0.5)
+        assert transport.query_cancelled
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_upmixer_confirmation_does_not_leave_background_polling():
+    transport = BlockedSelectorQueryTransport()
+    client = TrinnovAltitudeClient(host="unused", transport_factory=FakeTransportFactory([transport]), read_timeout=0.01)
+    await client.start()
+    try:
+        await client.wait_synced(timeout=1)
+        transport.block = True
+        task = asyncio.create_task(client.upmixer_set(const.UpmixerMode.MODE_DOLBY))
+        await asyncio.wait_for(transport.query_started.wait(), 1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        sent = list(transport.sent)
+        await asyncio.sleep(0.02)
+        assert transport.sent == sent
+        assert transport.query_cancelled
+    finally:
+        await client.stop()
+
+
+@pytest.mark.parametrize(
+    ("argument", "value"),
+    [
+        ("selector_convergence_timeout", 0),
+        ("selector_convergence_timeout", float("inf")),
+        ("selector_convergence_timeout", float("nan")),
+        ("selector_convergence_interval", -1),
+        ("selector_convergence_interval", float("inf")),
+        ("selector_convergence_interval", float("nan")),
+    ],
+)
+def test_selector_polling_requires_finite_deadline_and_valid_interval(argument, value):
+    with pytest.raises(ValueError, match=argument):
+        TrinnovAltitudeClient("unused", **{argument: value})

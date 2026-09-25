@@ -28,6 +28,7 @@ from trinnov_altitude.canonical import (
     UpsertPresetEvent,
     UpsertSourceEvent,
 )
+from trinnov_altitude.const import UpmixerMode
 from trinnov_altitude.protocol import (
     AudiosyncMessage,
     AudiosyncStatusMessage,
@@ -47,18 +48,27 @@ from trinnov_altitude.protocol import (
     SourceMessage,
     SourcesChangedMessage,
     SourcesClearMessage,
+    UnknownMessage,
     UpmixerModeMessage,
     VolumeMessage,
     WelcomeMessage,
 )
 
+_UPMIXER_MODE_VALUES = frozenset(mode.value for mode in UpmixerMode)
+
 PROFILE_DEFAULT = "default"
 PROFILE_ALTITUDE_CI = "altitude_ci"
 
 
+def normalize_upmixer_mode(value: str) -> str:
+    """Canonicalize known mode tokens, preserving unfamiliar values for callers."""
+    normalized = " ".join(value.strip().casefold().replace("_", " ").split())
+    return normalized if normalized in _UPMIXER_MODE_VALUES else value.strip()
+
+
 def select_profile(features: Iterable[str]) -> str:
     """Select quirk profile from protocol feature flags."""
-    return PROFILE_ALTITUDE_CI if "altitude_ci" in set(features) else PROFILE_DEFAULT
+    return PROFILE_ALTITUDE_CI if "altitude_ci" in {feature.casefold() for feature in features} else PROFILE_DEFAULT
 
 
 def normalize_message(message: Message, profile: str) -> list[CanonicalEvent]:  # noqa: C901
@@ -76,13 +86,20 @@ def normalize_message(message: Message, profile: str) -> list[CanonicalEvent]:  
     if isinstance(message, CurrentSourceMessage):
         return [SetCurrentSourceEvent(index=message.index)]
     if isinstance(message, DecoderMessage):
-        return [SetDecoderEvent(decoder=message.decoder, active_upmixer=message.upmixer)]
+        return [SetDecoderEvent(decoder=message.decoder, active_upmixer=normalize_upmixer_mode(message.upmixer))]
     if isinstance(message, DimMessage):
         return [SetDimEvent(state=message.state)]
     if isinstance(message, UpmixerModeMessage):
-        return [SetUpmixerModeEvent(mode=message.mode)]
+        return [SetUpmixerModeEvent(mode=normalize_upmixer_mode(message.mode))]
+    if isinstance(message, UnknownMessage):
+        # Only a complete known mode token qualifies as an unprefixed reply.
+        # Do not infer a configured mode from arbitrary text or decoder status.
+        bare = normalize_upmixer_mode(message.raw_message)
+        if bare in _UPMIXER_MODE_VALUES:
+            return [SetUpmixerModeEvent(mode=bare)]
+        return []
     if isinstance(message, IdentsMessage):
-        return [SetFeaturesEvent(features=message.features)]
+        return [SetFeaturesEvent(features=tuple(feature.casefold() for feature in message.features))]
     if isinstance(message, MetaPresetLoadedMessage):
         # This is a firmware-specific transition hint, not an authoritative
         # selector identity signal. The client refreshes CURRENT_PRESET and

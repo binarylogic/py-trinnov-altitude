@@ -32,3 +32,22 @@ This library uses a strict 4-layer flow:
 - No plugin framework.
 - No per-entity protocol hacks.
 - No cross-layer backreferences.
+
+## Normalization and diagnostics contract
+
+- Match ASCII message keywords case-insensitively; do not lowercase entire lines.
+- Preserve labels, unknown payloads, and raw unknown messages. Strip only transport line endings.
+- Normalize known enum spellings in the normalizer; adapters reuse that function.
+- A recognized firmware variant produces canonical events even if its raw message is unclassified.
+- `AltitudeState.apply()` returns the canonical events it applied. The client records an unknown
+  raw message only when normalization produced no events; it does not duplicate quirk rules.
+- A configured selector and the currently active decoder remain distinct state fields.
+
+## Command policy
+
+Use the command completion table in README.md when adding an operation. State-confirming
+commands share one deadline-bounded polling implementation. Repeating the setting itself
+is a separate, explicit device behavior; never infer retry safety from a method's name.
+Keep response fixtures for known firmware shapes, and exercise delayed state, unrelated
+pushes, unknown values, cancellation, and stalled query I/O. Do not reinterpret an
+unfamiliar payload merely to make a confirmation test pass.

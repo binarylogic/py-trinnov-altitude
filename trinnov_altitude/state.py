@@ -116,12 +116,14 @@ class AltitudeState:
         self._seen_current_preset = False
         self._seen_current_source = False
 
-    def apply(self, message: Message) -> None:
-        """Normalize one raw message and reduce it into state."""
+    def apply(self, message: Message) -> list[CanonicalEvent]:
+        """Normalize and reduce one raw message, returning its recognized events."""
         self._commit_completed_catalogs(message)
         profile = select_profile(self.features)
-        for event in normalize_message(message, profile):
+        events = normalize_message(message, profile)
+        for event in events:
             self._apply_event(event)
+        return events
 
     @property
     def has_pending_catalogs(self) -> bool:

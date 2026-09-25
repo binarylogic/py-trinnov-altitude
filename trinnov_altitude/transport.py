@@ -110,7 +110,7 @@ class TcpTransport:
         if line == b"":
             raise exceptions.NotConnectedError("Connection closed by peer.")
 
-        return line.decode(self.ENCODING).rstrip()
+        return line.decode(self.ENCODING).removesuffix("\n").removesuffix("\r")
 
     async def send_line(self, line: str, timeout: float | None) -> None:
         if self._writer is None:
